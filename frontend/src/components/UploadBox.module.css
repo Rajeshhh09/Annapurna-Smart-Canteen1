@@ -1,0 +1,67 @@
+/* src/components/UploadBox.module.css */
+
+.uploadBox {
+  border: 2px dashed #e65100;
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.2s ease, border 0.2s ease;
+  max-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.uploadBox:hover {
+  background: #fff5f0;
+  border-color: #d34a00;
+}
+
+.icon {
+  width: 48px;
+  height: 48px;
+  fill: #e65100;
+  margin-bottom: 0.5rem;
+}
+
+.preview {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 12px;
+  z-index: 1;
+}
+
+.preview img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.removeBtn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: #e65100;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.removeBtn:hover {
+  background: #d34a00;
+}
