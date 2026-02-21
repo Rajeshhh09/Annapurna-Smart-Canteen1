@@ -325,7 +325,7 @@ export default function OrdersPage() {
     if (!user) { setLoading(false); return; }
     const fetch = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/orders/user/${user.uid}`);
+        const res = await axios.get(`https://annapurna-smart-canteen1.onrender.com/api/orders/user/${user.uid}`);
         setOrders(res.data);
       } catch (e) {
         if (e.response?.status !== 404) console.error(e);

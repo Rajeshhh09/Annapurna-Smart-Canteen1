@@ -245,10 +245,10 @@ export default function AdminDashboard() {
   useEffect(() => { fetchMenu(); fetchOrders(); }, []);
 
   const fetchMenu = async () => {
-    try { const r = await axios.get('http://localhost:5000/api/menu'); setMenu(r.data); } catch(e) { console.error(e); }
+    try { const r = await axios.get('https://annapurna-smart-canteen1.onrender.com/api/menu'); setMenu(r.data); } catch(e) { console.error(e); }
   };
   const fetchOrders = async () => {
-    try { const r = await axios.get('http://localhost:5000/api/orders'); setOrders(r.data); } catch(e) { console.error(e); }
+    try { const r = await axios.get('https://annapurna-smart-canteen1.onrender.com/api/orders'); setOrders(r.data); } catch(e) { console.error(e); }
   };
 
   const addMenuItem = async () => {
@@ -256,7 +256,7 @@ export default function AdminDashboard() {
     const price = parseFloat(newItem.price);
     if (isNaN(price) || price <= 0) { alert('Enter a valid price'); return; }
     try {
-      await axios.post('http://localhost:5000/api/menu', {
+      await axios.post('https://annapurna-smart-canteen1.onrender.com/api/menu', {
         ...newItem, price,
         prepTime: parseInt(newItem.prepTime) || 10,
         inStock: true       // ← default to in-stock
@@ -268,7 +268,7 @@ export default function AdminDashboard() {
 
   const updateMenuItem = async (updated) => {
     try {
-      await axios.put(`http://localhost:5000/api/menu/${updated.id}`, {
+      await axios.put(`https://annapurna-smart-canteen1.onrender.com/api/menu/${updated.id}`, {
         name:updated.name, price:updated.price, category:updated.category,
         imageUrl:updated.imageUrl, prepTime:updated.prepTime, description:updated.description
       });
@@ -280,20 +280,20 @@ export default function AdminDashboard() {
   const toggleStock = async (item) => {
     const newStatus = item.inStock === false ? true : false;   // flip
     try {
-      await axios.put(`http://localhost:5000/api/menu/${item.id}/stock`, { inStock: newStatus });
+      await axios.put(`https://annapurna-smart-canteen1.onrender.com/api/menu/${item.id}/stock`, { inStock: newStatus });
       fetchMenu();
     } catch(e) { alert('Failed to update stock status.'); }
   };
 
   const deleteMenuItem = async (id) => {
     if (!window.confirm('Delete this item?')) return;
-    try { await axios.delete(`http://localhost:5000/api/menu/${id}`); fetchMenu(); } catch(e) { alert('Failed to delete.'); }
+    try { await axios.delete(`https://annapurna-smart-canteen1.onrender.com/api/menu/${id}`); fetchMenu(); } catch(e) { alert('Failed to delete.'); }
   };
 
   const updateOrderStatus = async (orderId, status) => {
     try {
-      await axios.put(`http://localhost:5000/api/orders/${orderId}/status`, { status });
-      if (status === 'Delivered') await axios.delete(`http://localhost:5000/api/orders/${orderId}`);
+      await axios.put(`https://annapurna-smart-canteen1.onrender.com/api/orders/${orderId}/status`, { status });
+      if (status === 'Delivered') await axios.delete(`https://annapurna-smart-canteen1.onrender.com/api/orders/${orderId}`);
       fetchOrders();
     } catch(e) { alert('Failed to update order.'); }
   };

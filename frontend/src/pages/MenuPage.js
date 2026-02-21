@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
-const API = 'http://localhost:5000';
+const API = 'https://annapurna-smart-canteen1.onrender.com';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const calcPoints  = (total) => Math.floor(total / 100) * 10;
