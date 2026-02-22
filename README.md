@@ -11,7 +11,7 @@
 **A full-stack smart canteen ordering system built for college campuses.**  
 Real-time menu, UPI prepaid payments, loyalty rewards, admin dashboard — all in one.
 
-[Live Demo](https://annapurna-smart-canteen.netlify.app/menu) · [Report Bug](#) · [Request Feature](#)
+[Live Demo](https://annapurna-smart-canteen.netlify.app/menu) · [Report Bug](rajeshmali8900@gmail.com) · [Request Feature(rajeshmali8900@gmail.com)
 
 </div>
 
