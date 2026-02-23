@@ -336,7 +336,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   w.document.write(html);
   w.document.close();
   w.onload = () => setTimeout(() => { w.focus(); w.print(); }, 700);
-}
+
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = `
