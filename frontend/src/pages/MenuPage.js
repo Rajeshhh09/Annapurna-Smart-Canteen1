@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
@@ -6,7 +6,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 
 const API = 'https://annapurna-smart-canteen1.onrender.com';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 const calcPoints  = (total) => Math.floor(total / 100) * 10;
 const CATEGORY_PREP = { Breakfast: 12, Lunch: 15, Snacks: 8, Beverages: 5, Desserts: 10 };
 const calcETA = (cartItems, menuItems) => {
@@ -24,17 +24,178 @@ const getTier = (pts) => {
 };
 const saveCart = (c) => { try { localStorage.setItem('cart', JSON.stringify(c)); } catch (_) {} };
 const loadCart = () => { try { const s = localStorage.getItem('cart'); return s ? JSON.parse(s) : []; } catch (_) { return []; } };
+const getLS = (k, def) => { try { const v = localStorage.getItem(k); return v !== null ? JSON.parse(v) : def; } catch { return def; } };
+const setLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} };
 const CAT_ICONS = { All: '🍽️', Breakfast: '🌅', Lunch: '🍱', Snacks: '🥨', Beverages: '🥤', Desserts: '🍮' };
 const formatDate = (d) => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
 const formatTime = (d) => d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-// ─── Receipt Download ────────────────────────────────────────────────────────
+// ─── Payment confirmed sound ──────────────────────────────────────────────────
+function playSuccessSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [523, 659, 784, 1047].forEach((freq, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = freq;
+      o.type = 'sine';
+      g.gain.setValueAtTime(0.18, ctx.currentTime + i * 0.12);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.25);
+      o.start(ctx.currentTime + i * 0.12);
+      o.stop(ctx.currentTime + i * 0.12 + 0.25);
+    });
+  } catch (_) {}
+}
+
+// ─── Receipt Download ─────────────────────────────────────────────────────────
 function downloadReceipt(order) {
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
 <title>Receipt – Annapurna Smart Canteen</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}body{font-family:'Inter',sans-serif;background:#f8f6f2;display:flex;justify-content:center;padding:20px 10px}
+  .receipt{width:390px;max-width:100%;background:white;border-radius:24px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.09)}
+  .top-bar{display:flex;justify-content:space-between;align-items:center;padding:14px 22px;font-size:13px;color:#666;border-bottom:1px solid #f0ede8}
+  .logo-section{padding:32px 20px 20px;text-align:center}
+  .brand{font-family:'Playfair Display',serif;font-size:29px;font-weight:800;color:#2d1f0e}
+  .brand-sub{font-size:11.8px;font-weight:700;letter-spacing:3.2px;color:#FF7A33;text-transform:uppercase}
+  .success{background:#f0fdf4;color:#166534;padding:16px;text-align:center;font-weight:600;font-size:15.5px;display:flex;align-items:center;justify-content:center;gap:10px;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb}
+  .order-meta{display:flex;justify-content:space-between;padding:22px 22px 18px;border-bottom:2px dashed #e5e7eb}
+  .order-id{font-size:18px;font-weight:700;color:#1f2937;letter-spacing:1.2px;margin-top:3px}
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:0 22px 22px}
+  .info-box{background:#faf9f6;border:1px solid #ede8e0;border-radius:14px;padding:14px 16px}
+  .info-label{font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+  .info-val{font-size:14.5px;font-weight:500;color:#374151;line-height:1.45}
+  .pay-row{margin:0 22px 18px;background:#f5f5f0;border-radius:12px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+  .upi-badge{background:linear-gradient(135deg,#FF7A33,#FF5500);color:white;font-size:12px;font-weight:700;padding:4px 12px;border-radius:999px}
+  .cod-badge{background:linear-gradient(135deg,#16a34a,#15803d);color:white;font-size:12px;font-weight:700;padding:4px 12px;border-radius:999px}
+  .items-section{padding:0 22px}
+  .item-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #f3f4f6}
+  .totals{margin:22px;background:#faf9f6;border:1px solid #ede8e0;border-radius:16px;padding:18px 20px}
+  .total-line{display:flex;justify-content:space-between;font-size:14.5px;color:#6b7280;padding:7px 0}
+  .total-line.grand{border-top:2px solid #fed7aa;margin-top:8px;padding-top:14px;font-size:17.5px;color:#2d1f0e}
+  .thankyou{text-align:center;padding:30px 22px 40px;color:#6b7280;font-size:15px}
+  .footer{text-align:center;padding:18px 22px;font-size:11.5px;color:#9ca3af;border-top:1px solid #f3f4f6;line-height:1.6}
+  @media print{body{background:white;padding:0}.receipt{box-shadow:none;border-radius:0;width:100%}}
+</style></head><body><div class="receipt">
+<div class="top-bar"><div>${new Date().toLocaleDateString('en-IN')}, ${new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true})}</div><div style="font-weight:600;color:#1f2937">Annapurna Smart Canteen</div></div>
+<div class="logo-section"><div class="brand">Annapurna</div><div class="brand-sub">SMART CANTEEN</div></div>
+<div class="success">✓ Order Confirmed Successfully!</div>
+<div class="order-meta"><div><div style="font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase">ORDER ID</div><div class="order-id">#${order.orderId.slice(-8).toUpperCase()}</div></div><div style="text-align:right;font-size:13.5px;color:#6b7280"><div>${formatDate(order.date)}</div><div>${formatTime(order.date)}</div></div></div>
+<div class="info-grid"><div class="info-box"><div class="info-label">👤 RECIPIENT</div><div class="info-val">${order.deliveryName}</div></div><div class="info-box"><div class="info-label">📍 DELIVERY TO</div><div class="info-val">${order.deliveryLocation}</div></div></div>
+<div class="pay-row"><span style="font-size:13px;font-weight:600;color:#374151">💳 Payment</span>${order.paymentMethod==='upi'?'<span class="upi-badge">📱 UPI Prepaid</span>':'<span class="cod-badge">💵 Cash on Delivery</span>'}</div>
+${order.eta?`<div style="margin:0 22px 22px;background:#fef3c7;border:1px solid #fcd34d;border-radius:14px;padding:14px 18px;font-size:14.5px;font-weight:600;color:#d97706">⏱ Estimated: <strong>${order.eta}</strong></div>`:''}
+<div class="items-section"><div style="font-size:12px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #f3f4f6">ITEMS ORDERED</div>
+${order.items.map(item=>`<div class="item-row"><div style="display:flex;align-items:center;gap:14px"><div style="font-size:17px;font-weight:700;color:#FF7A33">${item.quantity}</div><div><div style="font-weight:600;color:#1f2937">${item.name}</div><div style="font-size:12.5px;color:#9ca3af">₹${item.price.toFixed(2)} each</div></div></div><div style="font-size:15.5px;font-weight:700">₹${(item.price*item.quantity).toFixed(2)}</div></div>`).join('')}
+</div>
+<div class="totals"><div class="total-line"><span>Subtotal</span><span>₹${order.total.toFixed(2)}</span></div><div class="total-line"><span>Delivery</span><span style="color:#15803d;font-weight:700">FREE</span></div><div class="total-line grand"><span style="font-weight:700">${order.paymentMethod==='upi'?'Total Paid':'Total to Pay'}</span><span style="color:#FF7A33;font-weight:800">₹${order.total.toFixed(2)}</span></div></div>
+${order.pointsEarned>0?`<div style="margin:0 22px 22px;background:#fff7ed;border:1px solid #fed7aa;border-radius:14px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between"><div style="font-size:14.5px;color:#9ca3af">You earned <strong style="color:#c2410c">+${order.pointsEarned} loyalty points</strong>!</div><div style="background:#FF7A33;color:white;padding:6px 18px;border-radius:9999px;font-size:13px;font-weight:700">⭐ ${order.pointsEarned} pts</div></div>`:''}
+<div class="thankyou">🙏 <strong style="color:#FF7A33">Thank You!</strong><br>${order.paymentMethod==='upi'?'Your payment was received. Food is being <strong>prepared with love</strong>.':'Please keep <strong>₹'+order.total.toFixed(2)+' ready</strong> for cash payment on delivery.'}<br>We hope to see you again at Annapurna Smart Canteen!</div>
+<div class="footer">Annapurna Smart Canteen • SURAT, Gujarat<br>Support: Annapurna@canteen.edu.in<br>© ${new Date().getFullYear()} All rights reserved</div>
+</div></body></html>`;
+  const w = window.open('','_blank','width=650,height=920');
+  w.document.write(html); w.document.close();
+  w.onload = () => setTimeout(() => { w.focus(); w.print(); }, 700);
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const makeStyles = (dark, largeFontSize) => `
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: ${dark ? '#111827' : '#faf9f6'};
+  --bg2: ${dark ? '#1f2937' : '#ffffff'};
+  --bg3: ${dark ? '#374151' : '#f5f5f0'};
+  --bg4: ${dark ? '#2d3748' : '#faf9f6'};
+  --border: ${dark ? '#374151' : '#e5e7eb'};
+  --border2: ${dark ? '#4b5563' : '#ede8e0'};
+  --text: ${dark ? '#f9fafb' : '#1f2937'};
+  --text2: ${dark ? '#d1d5db' : '#374151'};
+  --text3: ${dark ? '#9ca3af' : '#6b7280'};
+  --text4: ${dark ? '#6b7280' : '#9ca3af'};
+  --orange: #FF7A33;
+  --orange2: #FF5500;
+  --card-shadow: ${dark ? '0 2px 12px rgba(0,0,0,.35)' : '0 2px 12px rgba(0,0,0,.06)'};
+  font-size: ${largeFontSize ? '17px' : '16px'};
+}
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); transition: background .3s, color .3s; }
+
+/* ── HEADER ── */
+.mhdr { position: sticky; top: 0; z-index: 200; background: ${dark ? 'rgba(17,24,39,0.96)' : 'rgba(255,255,255,0.95)'}; backdrop-filter: blur(14px); border-bottom: 1px solid ${dark ? 'rgba(255,122,51,0.2)' : 'rgba(255,122,51,0.1)'}; box-shadow: 0 2px 24px rgba(0,0,0,${dark ? '.25' : '.07'}); }
+.mhdr-in { max-width: 1400px; margin: 0 auto; padding: .8rem 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.logo-wrap { display: flex; align-items: center; gap: .75rem; }
+.logo-icon { width: 42px; height: 42px; background: linear-gradient(145deg,#FF7A33,#FF5500); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(255,107,0,.35); flex-shrink: 0; }
+.logo-brand { font-family: 'Playfair Display',serif; font-size: 1.2rem; font-weight: 800; color: ${dark ? '#f9fafb' : '#2d1f0e'}; line-height: 1; }
+.logo-sub { font-size: .62rem; color: #FF7A33; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; }
+.nav-right { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
+.nav-btn { display: flex; align-items: center; gap: .4rem; padding: .48rem .95rem; background: var(--bg3); border: 1.5px solid transparent; border-radius: 10px; font-family: 'DM Sans',sans-serif; font-size: .82rem; font-weight: 600; color: var(--text2); cursor: pointer; transition: all .2s; white-space: nowrap; }
+.nav-btn:hover { background: var(--bg2); border-color: rgba(255,122,51,.3); color: #FF7A33; }
+.nav-btn.active { background: ${dark ? 'rgba(255,122,51,.2)' : '#fff3ec'}; border-color: rgba(255,122,51,.4); color: #FF7A33; }
+.nav-btn.logout { background: ${dark ? 'rgba(220,38,38,.15)' : '#fff1f0'}; color: #dc2626; border-color: rgba(220,38,38,.2); }
+.nav-btn.settings-btn { background: ${dark ? 'rgba(255,122,51,.15)' : '#fff3ec'}; color: #FF7A33; border-color: rgba(255,122,51,.3); }
+.user-chip { display: flex; align-items: center; gap: .5rem; background: ${dark ? 'rgba(255,122,51,.1)' : 'white'}; border: 1.5px solid ${dark ? 'rgba(255,122,51,.3)' : '#e5e7eb'}; border-radius: 12px; padding: .4rem .85rem; }
+.user-avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg,#FF7A33,#FF5500); display: flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 800; color: white; flex-shrink: 0; }
+.user-name { font-size: .8rem; font-weight: 700; color: ${dark ? '#f9fafb' : '#2d1f0e'}; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loy-chip { display: flex; align-items: center; gap: .5rem; background: ${dark ? 'rgba(255,255,255,.05)' : 'white'}; border: 1.5px solid var(--border); border-radius: 12px; padding: .4rem .85rem; }
+.loy-pts { font-size: .85rem; font-weight: 800; color: ${dark ? '#f9fafb' : '#2d1f0e'}; }
+.loy-lbl { font-size: .68rem; color: var(--text4); font-weight: 500; }
+.cart-trigger { position: relative; display: flex; align-items: center; gap: .5rem; padding: .5rem 1.15rem; background: linear-gradient(135deg,#FF7A33,#FF5500); border: none; border-radius: 10px; font-family: 'DM Sans',sans-serif; font-size: .85rem; font-weight: 700; color: white; cursor: pointer; box-shadow: 0 4px 14px rgba(255,107,0,.35); transition: all .2s; }
+.cart-trigger:hover { transform: translateY(-1px); box-shadow: 0 7px 22px rgba(255,107,0,.45); }
+.cart-badge { position: absolute; top: -8px; right: -8px; background: #2d1f0e; color: white; font-size: .68rem; font-weight: 800; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 2px solid ${dark ? '#111827' : 'white'}; }
+
+/* ── LOYALTY BANNER ── */
+.loy-banner { background: linear-gradient(135deg,#2d1f0e,#3d2a14,#4a3020); padding: 1rem 2rem; position: relative; overflow: hidden; }
+.loy-banner::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 15% 50%,rgba(255,122,51,.2),transparent 55%); }
+.loy-inner { max-width: 1400px; margin: 0 auto; position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; }
+.loy-tier-badge { padding: .28rem .75rem; border-radius: 999px; font-size: .72rem; font-weight: 800; letter-spacing: .5px; }
+.loy-pts-big { font-family: 'Playfair Display',serif; font-size: 1.4rem; font-weight: 800; color: white; line-height: 1; }
+.loy-pts-lbl { font-size: .7rem; color: rgba(255,255,255,.5); font-weight: 500; }
+.loy-prog-bar { height: 5px; background: rgba(255,255,255,.15); border-radius: 999px; overflow: hidden; margin-top: 5px; }
+.loy-prog-fill { height: 100%; background: linear-gradient(90deg,#FF7A33,#FF5500); border-radius: 999px; transition: width .8s ease; }
+.loy-tip { font-size: .7rem; color: rgba(255,255,255,.55); }
+.loy-tip span { color: #FFAA77; font-weight: 700; }
+
+/* ── HERO ── */
+.mhero { background: linear-gradient(135deg,#2d1f0e,#3d2a14,#4a3020); padding: 2.75rem 2rem; text-align: center; position: relative; overflow: hidden; }
+.mhero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 50%,rgba(255,122,51,.15),transparent 60%); }
+.hero-in { position: relative; z-index: 1; max-width: 600px; margin: 0 auto; }
+.hero-eye { display: inline-flex; align-items: center; gap: .5rem; background: rgba(255,122,51,.2); border: 1px solid rgba(255,122,51,.35); color: #FFAA77; font-size: .72rem; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; padding: .3rem .8rem; border-radius: 999px; margin-bottom: .85rem; }
+.hero-title { font-family: 'Playfair Display',serif; font-size: 2.6rem; font-weight: 800; color: white; line-height: 1.1; margin-bottom: .6rem; }
+.hero-title span { color: #FF7A33; }
+.hero-sub { font-size: .95rem; color: rgba(255,255,255,.55); }
+
+/* ── PAGE BODY ── */
+.page-body { display: flex; align-items: flex-start; }
+.menu-area { flex: 1; min-width: 0; }
+.mmain { padding: 2rem 2rem 3rem; }
+.search-wrap { position: relative; margin-bottom: 1.5rem; }
+.search-ico { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text4); pointer-events: none; }
+.search-inp { width: 100%; padding: .85rem 1rem .85rem 2.75rem; border: 1.5px solid var(--border); border-radius: 12px; font-family: 'DM Sans',sans-serif; font-size: .95rem; color: var(--text); background: var(--bg2); outline: none; box-shadow: 0 2px 8px rgba(0,0,0,.04); transition: border-color .2s,box-shadow .2s; }
+.search-inp:focus { border-color: #FF7A33; box-shadow: 0 0 0 3px rgba(255,122,51,.12); }
+.search-inp::placeholder { color: var(--text4); }
+.cat-row { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 2rem; }
+.cat-pill { padding: .48rem 1.1rem; background: var(--bg2); border: 1.5px solid var(--border); border-radius: 999px; font-family: 'DM Sans',sans-serif; font-size: .82rem; font-weight: 600; color: var(--text3); cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: .3rem; }
+.cat-pill:hover { border-color: rgba(255,122,51,.4); color: #FF7A33; }
+.cat-pill.active { background: linear-gradient(135deg,#FF7A33,#FF5500); border-color: transparent; color: white; box-shadow: 0 4px 12px rgba(255,107,0,.3); }
+.sec-label { font-family: 'Playfair Display',serif; font-size: 1.3rem; font-weight: 700; color: ${dark ? '#f9fafb' : '#2d1f0e'}; margin-bottom: 1.1rem; display: flex; align-items: center; gap: .6rem; }
+.sec-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ── CARDS ── */
+.mgrid { display: grid; grid-template-columns: repeat(auto-fill,minmax(240px,1fr)); gap: 1.25rem; }
+.mcard { background: var(--bg2); border-radius: 16px; box-shadow: var(--card-shadow); border: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; transition: transform .22s,box-shadow .22s; }
+.mcard:not(.oos):hover { transform: translateY(-4px); box-shadow: ${dark ? '0 12px 30px rgba(0,0,0,.35)' : '0 12px 30px rgba(0,0,0,.1)'}; }
+.mcard.oos { opacity: .7; }
+.cimg-wrap { position: relative; height: 175px; overflow: hidden; }
+.cimg { width: 100%; height: 100%; object-fit: cover; transition: transform .4s; }
+.mcard:not(.oos):hover .cimg { transform: scale(1.06); }
+.oos-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; }
+.oos-tag { background: #ef4444; color: white; font-size: .78rem; font-weight: 800; padding: .35rem .9rem; border-radius: 999px; letter-spacing: 1px; text-transform: uppercase; }
+.cbadge { position: absolute; top: .55rem; left: .55rem; background: rgba(20,12,0,.78); backdrop-filter: blur(6px); color: white; font-size: .65rem; font-weight: 700; padding: .22rem .55rem; border-radius: 5px; letter-spacing: .5px; text-transform: uppercase; }
+.cprice { position: absolute; top: .55rem; right: .55rem; background: linear-gradient(135deg,#FF7A33,#FF5500); color: white; font-size: .85rem; font-weight: 800; padding: .28rem .62rem; border-radius: 7px; box-shadow: 0 3px 10px rgba(255,107,0,.4); }
+.cbody { padding: .9rem 1rem 1rem; flex: 1; display: flex; flex-direction: column; }
+.cname { font-size: .97rem; font-weight: 700; color: var(--text); margin-bottom: .25rem; line-height: 1.3; }
+.cdesc { font-size: .78rem; color: var(--text3); line-height: 1.45; f<title>Receipt – Annapurna Smart Canteen</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500;600;700&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
