@@ -401,27 +401,34 @@ app.post('/api/create-payment-qr', async (req, res) => {
   try {
     const { amount, orderId } = req.body;
 
-    const qr = await razorpay.qrCode.create({
-      type:           'upi_qr',
-      name:           'Annapurna Smart Canteen',
-      usage:          'single_use',
-      fixed_amount:   true,
-      payment_amount: Math.round(amount * 100),  // convert ₹ to paise
-      description:    `Order ${orderId}`,
-      close_by:       Math.floor(Date.now() / 1000) + 600, // 10 min expiry
+    const link = await razorpay.paymentLink.create({
+      amount: Math.round(amount * 100),
+      currency: "INR",
+      description: `Order ${orderId}`,
+      customer: {
+        name: "Customer",
+      },
+      notify: {
+        sms: false,
+        email: false,
+      },
+      callback_method: "get",
     });
 
-    await db.collection('pendingPayments').doc(qr.id).set({
+    await db.collection('pendingPayments').doc(link.id).set({
       orderId,
       amount,
-      status:    'pending',
+      status: "pending",
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    res.json({ qrId: qr.id, qrImageUrl: qr.image_url });
+    res.json({
+      qrId: link.id,
+      paymentUrl: link.short_url,
+    });
 
   } catch (err) {
-    console.error('QR creation error:', err);
+    console.error("Payment link error:", err);
     res.status(500).json({ error: err.message });
   }
 });
