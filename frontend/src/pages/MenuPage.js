@@ -529,17 +529,17 @@ export default function MenuPage() {
       qrImageUrl: res.data.qrImageUrl,
     });
 
-    pollingRef.current = setInterval(async () => {
-      try {
-        const statusRes = await axios.get(`${API}/api/payment-status/${qrId}`);
-        if (statusRes.data.status === 'paid') {
-          setPaymentConfirmed(true);
-          stopPolling();
-        }
-      } catch (e) {
-        console.error('Poll error:', e);
-      }
-    }, 3000);
+    // pollingRef.current = setInterval(async () => {
+    //   try {
+    //     const statusRes = await axios.get(`${API}/api/payment-status/${qrId}`);
+    //     if (statusRes.data.status === 'paid') {
+    //       setPaymentConfirmed(true);
+    //       stopPolling();
+    //     }
+    //   } catch (e) {
+    //     console.error('Poll error:', e);
+    //   }
+    // }, 3000);
 
     expireTimerRef.current = setTimeout(() => {
       stopPolling();
