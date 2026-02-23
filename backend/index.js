@@ -399,33 +399,34 @@ app.post('/api/loyalty/:userId/add', async (req, res) => {
 // ============================================================
 
 // ── ROUTE 1: Create Razorpay UPI QR for an order ──────────────────────────
-// app.post('/api/create-payment-qr', async (req, res) => {
-//   try {
-//     const { amount, orderId } = req.body;
+app.post('/api/create-payment-qr', async (req, res) => {
+  try {
+    const { amount, orderId } = req.body;
 
-//     const paymentLink = await razorpay.paymentLink.create({
-//       amount: Math.round(amount * 100),
-//       currency: "INR",
-//       description: `Order ${orderId}`,
-//       customer: {
-//         name: "Customer",
-//       },
-//       notify: {
-//         sms: false,
-//         email: false
-//       }
-//     });
+    const paymentLink = await razorpay.paymentLink.create({
+      amount: Math.round(amount * 100),
+      currency: "INR",
+      description: `Order ${orderId}`,
+      customer: {
+        name: "Customer",
+      },
+      notify: {
+        sms: false,
+        email: false
+      }
+    });
 
-//     res.json({
-//       qrId: paymentLink.id,
-//       qrImageUrl: paymentLink.short_url
-//     });
+    res.json({
+      qrId: paymentLink.id,
+      qrImageUrl: paymentLink.short_url,
+      paymentUrl: paymentLink.url
+    });
 
-//   } catch (err) {
-//     console.error("QR creation error:", err);
-//     res.status(500).json({ error: err.message });
-//   }
-// });
+  } catch (err) {
+    console.error("QR creation error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ── ROUTE 2: Frontend polls this every 3 sec to check if paid ─────────────
 app.get('/api/payment-status/:qrId', async (req, res) => {
