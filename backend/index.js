@@ -3,15 +3,21 @@ const cors = require('cors');
 const admin = require('firebase-admin');
 require('dotenv').config();
 
+require('dotenv').config();
+const Razorpay = require('razorpay');
+const crypto   = require('crypto');
+
+const razorpay = new Razorpay({
+  key_id:     process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
 // Initialize Firebase Admin
 // const serviceAccount = require('./firebase-adminsdk.json');
 // admin.initializeApp({
 //   credential: admin.credential.cert(serviceAccount),
 //   projectId: process.env.FIREBASE_PROJECT_ID,
 // });
-
-const admin = require("firebase-admin");
-
 admin.initializeApp({
   credential: admin.credential.cert({
     projectId: process.env.FIREBASE_PROJECT_ID,
@@ -23,8 +29,52 @@ admin.initializeApp({
 const db = admin.firestore();
 const app = express();
 
-app.use(cors());
+// ⚠️ Webhook route MUST be before express.json() to access raw body
+app.post(
+  '/api/razorpay-webhook',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    try {
+      const signature  = req.headers['x-razorpay-signature'];
+      const bodyString = req.body.toString();
+
+      // Verify signature
+      const expected = crypto
+        .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET)
+        .update(bodyString)
+        .digest('hex');
+
+      if (signature !== expected) {
+        console.warn('Invalid webhook signature');
+        return res.status(400).send('Invalid signature');
+      }
+
+      const event = JSON.parse(bodyString);
+
+      // Razorpay fires this when UPI QR is paid
+      if (event.event === 'qr_code.credited') {
+        const qrId = event.payload.qr_code.entity.id;
+        const txnId = event.payload.payment.entity.id;
+
+        await db.collection('pendingPayments').doc(qrId).update({
+          status:        'paid',
+          transactionId: txnId,
+          paidAt:        admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        console.log(`✅ Payment confirmed for QR: ${qrId}, TXN: ${txnId}`);
+      }
+
+      res.json({ status: 'ok' });
+    } catch (err) {
+      console.error('Webhook error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
 app.use(express.json());
+app.use(cors());
 
 // ============================================================
 // ===== MENU ROUTES ==========================================
@@ -345,8 +395,54 @@ app.post('/api/loyalty/:userId/add', async (req, res) => {
 });
 
 // ============================================================
+// ===== PAYMENT ROUTES =======================================  ← NEW SECTION
+// ============================================================
+
+// ── ROUTE 1: Create Razorpay UPI QR for an order ──────────────────────────
+app.post('/api/create-payment-qr', async (req, res) => {
+  try {
+    const { amount, orderId } = req.body;
+
+    const qr = await razorpay.qrCode.create({
+      type:           'upi_qr',
+      name:           'Annapurna Smart Canteen',
+      usage:          'single_use',
+      fixed_amount:   true,
+      payment_amount: Math.round(amount * 100), // paise
+      description:    `Order #${orderId}`,
+      close_by:       Math.floor(Date.now() / 1000) + 600, // 10 min expiry
+    });
+
+    // Save QR → orderId mapping in Firestore
+    await db.collection('pendingPayments').doc(qr.id).set({
+      orderId,
+      amount,
+      status:    'pending',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    res.json({ qrId: qr.id, qrImageUrl: qr.image_url });
+  } catch (err) {
+    console.error('QR creation error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ── ROUTE 2: Frontend polls this every 3 sec to check if paid ─────────────
+app.get('/api/payment-status/:qrId', async (req, res) => {
+  try {
+    const doc = await db.collection('pendingPayments').doc(req.params.qrId).get();
+    if (!doc.exists) return res.status(404).json({ status: 'not_found' });
+    res.json({ status: doc.data().status });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
+  console.log("server mast chal rha hai port", PORT, "pe");
 });
