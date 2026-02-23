@@ -182,7 +182,6 @@ const styles = `
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'DM Sans', sans-serif; background: #faf9f6; }
-
 .mhdr { position: sticky; top: 0; z-index: 200; background: rgba(255,255,255,0.95); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(255,122,51,0.1); box-shadow: 0 2px 24px rgba(0,0,0,0.07); }
 .mhdr-in { max-width: 1400px; margin: 0 auto; padding: .8rem 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .logo-wrap { display: flex; align-items: center; gap: .75rem; }
@@ -323,8 +322,6 @@ body { font-family: 'DM Sans', sans-serif; background: #faf9f6; }
 .modal-actions { display: flex; gap: .75rem; margin-top: 1.25rem; }
 .cancel-btn { padding: .9rem 1.35rem; background: #f5f5f0; border: 1.5px solid #e5e7eb; border-radius: 11px; font-family: 'DM Sans',sans-serif; font-size: .9rem; font-weight: 600; color: #6b7280; cursor: pointer; }
 .cancel-btn:hover { border-color: #d1d5db; }
-
-/* ── RECEIPT MODAL ── */
 .receipt-modal-box { background: white; border-radius: 24px; box-shadow: 0 30px 80px rgba(0,0,0,.25); width: 520px; max-width: 95vw; max-height: 92vh; overflow-y: auto; animation: scaleIn .3s ease; }
 .receipt-modal-box::-webkit-scrollbar { width: 4px; }
 .receipt-modal-box::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
@@ -387,7 +384,6 @@ body { font-family: 'DM Sans', sans-serif; background: #faf9f6; }
 .toast-msg { font-size: .8rem; color: rgba(255,255,255,.65); }
 .empty-st { text-align: center; padding: 4rem 2rem; }
 .load-root { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; background: #faf9f6; }
-
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes spinSmooth { to { transform: rotate(360deg); } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -420,11 +416,11 @@ export default function MenuPage() {
   const [toast, setToast]                       = useState(null);
   const [paymentMethod, setPaymentMethod]       = useState('cod');
 
-  // ── NEW Razorpay state ────────────────────────────────────────────────────
-  const [qrData, setQrData]                     = useState(null);   // { qrId, qrImageUrl }
+  // ── Razorpay Payment Link state ───────────────────────────────────────────
+  const [linkData, setLinkData]                 = useState(null);   // { qrId, paymentUrl }
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
-  const [qrExpired, setQrExpired]               = useState(false);
-  const [qrLoading, setQrLoading]               = useState(false);
+  const [linkExpired, setLinkExpired]           = useState(false);
+  const [linkLoading, setLinkLoading]           = useState(false);
   const pollingRef                               = useRef(null);
   const expireTimerRef                           = useRef(null);
 
@@ -433,10 +429,9 @@ export default function MenuPage() {
   useEffect(() => { setCart(loadCart()); }, []);
   useEffect(() => { saveCart(cart); }, [cart]);
 
-  // Cleanup polling on unmount
   useEffect(() => {
     return () => {
-      if (pollingRef.current)    clearInterval(pollingRef.current);
+      if (pollingRef.current)     clearInterval(pollingRef.current);
       if (expireTimerRef.current) clearTimeout(expireTimerRef.current);
     };
   }, []);
@@ -463,7 +458,7 @@ export default function MenuPage() {
       .finally(() => setLoading(false));
   }, [user]);
 
-  // ── Cart ──────────────────────────────────────────────────────────────────
+  // ── Cart helpers ──────────────────────────────────────────────────────────
   const addToCart = (item) => {
     if (item.inStock === false) return;
     const exists  = cart.find(i => i.id === item.id);
@@ -484,76 +479,78 @@ export default function MenuPage() {
   };
   const clearCart = () => { setCart([]); saveCart([]); setCartOpen(false); };
 
-  // ── NEW: Stop polling ─────────────────────────────────────────────────────
+  // ── Stop polling ──────────────────────────────────────────────────────────
   const stopPolling = () => {
-    if (pollingRef.current)    { clearInterval(pollingRef.current);  pollingRef.current = null; }
-    if (expireTimerRef.current){ clearTimeout(expireTimerRef.current); expireTimerRef.current = null; }
+    if (pollingRef.current)     { clearInterval(pollingRef.current);   pollingRef.current = null; }
+    if (expireTimerRef.current) { clearTimeout(expireTimerRef.current); expireTimerRef.current = null; }
   };
 
-  // ── NEW: Reset UPI state when switching payment method ────────────────────
+  // ── Switch payment method ─────────────────────────────────────────────────
   const handlePaymentMethodChange = (method) => {
     setPaymentMethod(method);
     if (method !== 'upi') {
       stopPolling();
-      setQrData(null);
+      setLinkData(null);
       setPaymentConfirmed(false);
-      setQrExpired(false);
+      setLinkExpired(false);
     }
   };
 
-  // ── NEW: Generate Razorpay QR + start polling ─────────────────────────────
-  const generateRazorpayQR = async () => {
-  if (!deliveryName.trim() || !deliveryLocation.trim()) {
-    alert('Please fill in your name and delivery location first');
-    return;
-  }
-  stopPolling();
-  setQrData(null);
-  setPaymentConfirmed(false);
-  setQrExpired(false);
-  setQrLoading(true);
+  // ── Generate Razorpay Payment LINK ────────────────────────────────────────
+  // Backend /api/create-payment-qr returns: { qrId: plink_xxx, paymentUrl: short_url }
+  const generatePaymentLink = async () => {
+    if (!deliveryName.trim() || !deliveryLocation.trim()) {
+      alert('Please fill in your name and delivery location first');
+      return;
+    }
+    stopPolling();
+    setLinkData(null);
+    setPaymentConfirmed(false);
+    setLinkExpired(false);
+    setLinkLoading(true);
 
-  try {
-    const tempOrderId = `ANNA_${Date.now()}`;
-    const res = await axios.post(`${API}/api/create-payment-qr`, {
-      amount:  totalPrice,
-      orderId: tempOrderId,
-    });
-    setQrData(res.data); // { qrId, qrImageUrl }
+    try {
+      const tempOrderId = `ANNA_${Date.now()}`;
+      const res = await axios.post(`${API}/api/create-payment-qr`, {
+        amount:  totalPrice,
+        orderId: tempOrderId,
+      });
 
-    // Poll every 3 seconds to check if Razorpay webhook marked it paid
-    pollingRef.current = setInterval(async () => {
-      try {
-        const statusRes = await axios.get(`${API}/api/payment-status/${res.data.qrId}`);
-        if (statusRes.data.status === 'paid') {
-          setPaymentConfirmed(true);
-          stopPolling();
-        }
-      } catch (e) { console.error('Poll error:', e); }
-    }, 3000);
+      setLinkData(res.data); // { qrId: "plink_xxx", paymentUrl: "https://rzp.io/..." }
 
-    // Auto-expire QR after 10 minutes
-    expireTimerRef.current = setTimeout(() => {
-      stopPolling();
-      setQrExpired(true);
-      setPaymentConfirmed(false);
-    }, 600000);
+      // Poll every 3 seconds — webhook marks Firestore doc as 'paid'
+      pollingRef.current = setInterval(async () => {
+        try {
+          const statusRes = await axios.get(`${API}/api/payment-status/${res.data.qrId}`);
+          if (statusRes.data.status === 'paid') {
+            setPaymentConfirmed(true);
+            stopPolling();
+          }
+        } catch (e) { console.error('Poll error:', e); }
+      }, 3000);
 
-  } catch (err) {
-    console.error('QR generation error:', err);
-    alert('Failed to generate payment QR. Check your network and try again.');
-  } finally {
-    setQrLoading(false);
-  }
-};
+      // Expire after 10 minutes
+      expireTimerRef.current = setTimeout(() => {
+        stopPolling();
+        setLinkExpired(true);
+        setPaymentConfirmed(false);
+      }, 600000);
 
-  // ── Close checkout cleanly ────────────────────────────────────────────────
+    } catch (err) {
+      console.error('Payment link error:', err);
+      alert('Failed to generate payment link. Please try again.');
+    } finally {
+      setLinkLoading(false);
+    }
+  };
+
+  // ── Close checkout ────────────────────────────────────────────────────────
   const closeCheckout = () => {
     stopPolling();
     setCheckoutOpen(false);
-    setQrData(null);
+    setLinkData(null);
     setPaymentConfirmed(false);
-    setQrExpired(false);
+    setLinkExpired(false);
     setPaymentMethod('cod');
   };
 
@@ -563,7 +560,6 @@ export default function MenuPage() {
       alert('Please fill all details and select a payment method');
       return;
     }
-    // UPI: must be confirmed by Razorpay before placing
     if (paymentMethod === 'upi' && !paymentConfirmed) {
       alert('Please complete UPI payment first. The button will unlock once payment is confirmed.');
       return;
@@ -583,9 +579,9 @@ export default function MenuPage() {
         total, deliveryName, deliveryLocation, eta,
         pointsEarned: earned,
         paymentMethod,
-        razorpayQrId:  qrData?.qrId || null,
-        paymentStatus: paymentMethod === 'upi' ? 'paid' : 'cod',
-        status:        paymentMethod === 'upi' ? 'confirmed' : 'pending',
+        razorpayLinkId: linkData?.qrId || null,
+        paymentStatus:  paymentMethod === 'upi' ? 'paid' : 'cod',
+        status:         paymentMethod === 'upi' ? 'confirmed' : 'pending',
       });
 
       const orderId = orderRes.data.id || orderRes.data.orderId || `ORD${Date.now()}`;
@@ -608,7 +604,7 @@ export default function MenuPage() {
       setCart([]); saveCart([]);
       setCheckoutOpen(false); setCartOpen(false);
       setDeliveryName(''); setDeliveryLocation('');
-      setPaymentMethod('cod'); setQrData(null);
+      setPaymentMethod('cod'); setLinkData(null);
       setPaymentConfirmed(false);
     } catch (e) {
       console.error(e);
@@ -749,7 +745,7 @@ export default function MenuPage() {
                   )}
                   <div style={{ fontSize:26, marginBottom:8 }}>📱</div>
                   <div style={{ fontWeight:700, fontSize:14, color:'#1f2937' }}>Prepaid via UPI</div>
-                  <div style={{ fontSize:12, color:'#6b7280', marginTop:4 }}>Scan QR &amp; pay instantly via GPay, PhonePe, Paytm</div>
+                  <div style={{ fontSize:12, color:'#6b7280', marginTop:4 }}>Pay instantly via GPay, PhonePe, Paytm &amp; more</div>
                 </button>
 
                 {/* COD Card */}
@@ -778,21 +774,22 @@ export default function MenuPage() {
                 </div>
               )}
 
-              {/* ══════════════════════════════════════════════
-                  UPI QR RAZORPAY SECTION
-              ══════════════════════════════════════════════ */}
+              {/* ══════════════════════════════════════════════════
+                  UPI PAYMENT LINK SECTION
+              ══════════════════════════════════════════════════ */}
               {paymentMethod === 'upi' && (
                 <div style={{ marginBottom:'1.25rem' }}>
 
-                  {/* Not generated yet — show Generate button */}
-                  {!qrData && !qrLoading && (
+                  {/* STEP 1 — Not generated yet */}
+                  {!linkData && !linkLoading && !linkExpired && (
                     <div style={{ textAlign:'center', background:'#fafafa', border:'2px dashed #e5e7eb', borderRadius:14, padding:'1.75rem 1rem' }}>
                       <div style={{ fontSize:'2.5rem', marginBottom:'.5rem' }}>📲</div>
                       <p style={{ fontSize:'.85rem', color:'#6b7280', marginBottom:'1rem' }}>
-                        Click below to generate a <strong>unique QR code</strong> for exactly <strong style={{ color:'#FF7A33' }}>₹{totalPrice.toFixed(2)}</strong>
+                        Click below to generate a <strong>secure Razorpay payment link</strong> for{' '}
+                        <strong style={{ color:'#FF7A33' }}>₹{totalPrice.toFixed(2)}</strong>
                       </p>
                       <button
-                        onClick={generateRazorpayQR}
+                        onClick={generatePaymentLink}
                         disabled={!deliveryName.trim() || !deliveryLocation.trim()}
                         style={{
                           padding:'.75rem 1.75rem',
@@ -802,11 +799,10 @@ export default function MenuPage() {
                           fontFamily:"'DM Sans',sans-serif", fontSize:'.9rem', fontWeight:700,
                           cursor: (!deliveryName.trim() || !deliveryLocation.trim()) ? 'not-allowed' : 'pointer',
                           boxShadow: (!deliveryName.trim() || !deliveryLocation.trim()) ? 'none' : '0 4px 14px rgba(99,102,241,.35)',
-                          display:'inline-flex', alignItems:'center', gap:'.45rem'
+                          display:'inline-flex', alignItems:'center', gap:'.45rem',
                         }}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"/><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 17.25h.75v.75h-.75v-.75zM17.25 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75H13.5v-.75zM13.5 18.75h.75v.75H13.5v-.75zM18 13.5h.75v.75H18v-.75zM18 18.75h.75v.75H18v-.75zM16.5 15h.75v.75h-.75V15z"/></svg>
-                        Generate Payment QR
+                        🔗 Generate Payment Link
                       </button>
                       {(!deliveryName.trim() || !deliveryLocation.trim()) && (
                         <p style={{ fontSize:'.72rem', color:'#f59e0b', marginTop:'.6rem' }}>⚠️ Fill in delivery details above first</p>
@@ -814,62 +810,67 @@ export default function MenuPage() {
                     </div>
                   )}
 
-                  {/* Loading */}
-                  {qrLoading && (
+                  {/* STEP 2 — Loading */}
+                  {linkLoading && (
                     <div style={{ textAlign:'center', padding:'2rem', background:'#fafafa', border:'2px dashed #e5e7eb', borderRadius:14 }}>
                       <div style={{ width:36, height:36, border:'3px solid #e5e7eb', borderTop:'3px solid #6366f1', borderRadius:'50%', animation:'spinSmooth .8s linear infinite', margin:'0 auto .75rem' }} />
-                      <p style={{ fontSize:'.85rem', color:'#6b7280' }}>Generating your payment QR…</p>
+                      <p style={{ fontSize:'.85rem', color:'#6b7280' }}>Generating your payment link…</p>
                     </div>
                   )}
 
-                  {/* Expired */}
-                  {qrExpired && (
-                    <div style={{ background:'#fff1f0', border:'1px solid rgba(220,38,38,.25)', borderRadius:14, padding:'1.25rem', textAlign:'center', marginBottom:'.5rem' }}>
+                  {/* STEP 3 — Expired */}
+                  {linkExpired && (
+                    <div style={{ background:'#fff1f0', border:'1px solid rgba(220,38,38,.25)', borderRadius:14, padding:'1.25rem', textAlign:'center' }}>
                       <div style={{ fontSize:'1.75rem', marginBottom:'.4rem' }}>⏰</div>
-                      <p style={{ fontSize:'.85rem', color:'#dc2626', fontWeight:600, marginBottom:'.75rem' }}>QR code expired (10 min limit)</p>
-                      <button onClick={generateRazorpayQR} style={{ padding:'.6rem 1.25rem', background:'#dc2626', color:'white', border:'none', borderRadius:9, fontFamily:"'DM Sans',sans-serif", fontSize:'.85rem', fontWeight:700, cursor:'pointer' }}>
-                        Generate New QR
+                      <p style={{ fontSize:'.85rem', color:'#dc2626', fontWeight:600, marginBottom:'.75rem' }}>Payment link expired (10 min limit)</p>
+                      <button
+                        onClick={generatePaymentLink}
+                        style={{ padding:'.6rem 1.25rem', background:'#dc2626', color:'white', border:'none', borderRadius:9, fontFamily:"'DM Sans',sans-serif", fontSize:'.85rem', fontWeight:700, cursor:'pointer' }}
+                      >
+                        🔗 Generate New Link
                       </button>
                     </div>
                   )}
 
-                  {/* QR Generated — show QR + polling status */}
-                  {qrData && !qrExpired && (
+                  {/* STEP 4 — Link ready: big Pay button + live status */}
+                  {linkData && !linkExpired && (
                     <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:16, padding:'1.25rem', textAlign:'center' }}>
 
                       {/* Amount chip */}
-                      <div style={{ display:'inline-flex', alignItems:'center', gap:'.4rem', background:'linear-gradient(135deg,#FF7A33,#FF5500)', color:'white', fontFamily:"'Playfair Display',serif", fontSize:'1.4rem', fontWeight:800, padding:'.45rem 1.2rem', borderRadius:999, boxShadow:'0 4px 14px rgba(255,107,0,.4)', marginBottom:'1rem' }}>
+                      <div style={{ display:'inline-flex', alignItems:'center', background:'linear-gradient(135deg,#FF7A33,#FF5500)', color:'white', fontFamily:"'Playfair Display',serif", fontSize:'1.4rem', fontWeight:800, padding:'.45rem 1.2rem', borderRadius:999, boxShadow:'0 4px 14px rgba(255,107,0,.4)', marginBottom:'1rem' }}>
                         ₹{totalPrice.toFixed(2)}
                       </div>
 
-                      {/* QR image from Razorpay */}
-                      <div style={{ display:'flex', justifyContent:'center', marginBottom:'1rem' }}>
-                        <div style={{ position:'relative', padding:12, background:'white', border:'3px solid #2d1f0e', borderRadius:16, boxShadow:'0 8px 28px rgba(0,0,0,.12)' }}>
-                          {/* Orange corner accents - top left */}
-                          <div style={{ position:'absolute', top:'4px', left:'4px', width:16, height:16, borderColor:'#FF7A33', borderStyle:'solid', borderWidth:'3px 0 0 3px', borderRadius:'4px 0 0 0' }} />
-                          {/* Orange corner accents - top right */}
-                          <div style={{ position:'absolute', top:'4px', right:'4px', width:16, height:16, borderColor:'#FF7A33', borderStyle:'solid', borderWidth:'3px 3px 0 0', borderRadius:'0 4px 0 0' }} />
-                          {/* Orange corner accents - bottom left */}
-                          <div style={{ position:'absolute', bottom:'4px', left:'4px', width:16, height:16, borderColor:'#FF7A33', borderStyle:'solid', borderWidth:'0 0 3px 3px', borderRadius:'0 0 0 4px' }} />
-                          {/* Orange corner accents - bottom right */}
-                          <div style={{ position:'absolute', bottom:'4px', right:'4px', width:16, height:16, borderColor:'#FF7A33', borderStyle:'solid', borderWidth:'0 3px 3px 0', borderRadius:'0 0 4px 0' }} />
-                          <img
-                            src={qrData.qrImageUrl}
-                            alt="Razorpay UPI QR Code"
-                            width="220" height="220"
-                            style={{ display:'block', borderRadius:8 }}
-                          />
-                        </div>
-                      </div>
+                      {/* ── THE BIG PAY BUTTON — redirects to Razorpay portal ── */}
+                      <a
+                        href={linkData.paymentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display:'flex', alignItems:'center', justifyContent:'center', gap:'.6rem',
+                          background:'linear-gradient(135deg,#6366f1,#4f46e5)',
+                          color:'white', textDecoration:'none',
+                          padding:'1rem 1.5rem', borderRadius:12,
+                          fontFamily:"'DM Sans',sans-serif", fontSize:'1rem', fontWeight:700,
+                          boxShadow:'0 6px 20px rgba(99,102,241,.4)',
+                          marginBottom:'.85rem', width:'100%',
+                        }}
+                      >
+                        📱 Pay ₹{totalPrice.toFixed(2)} via UPI →
+                      </a>
 
-                      {/* UPI apps */}
+                      <p style={{ fontSize:'.78rem', color:'#6b7280', marginBottom:'.85rem' }}>
+                        Opens Razorpay portal → pay via GPay, PhonePe, Paytm or any UPI app
+                      </p>
+
+                      {/* Supported apps */}
                       <div style={{ display:'flex', justifyContent:'center', gap:8, flexWrap:'wrap', marginBottom:'.85rem' }}>
                         {['GPay','PhonePe','Paytm','BHIM','Amazon Pay'].map(a => (
                           <span key={a} style={{ background:'white', border:'1.5px solid #e5e7eb', borderRadius:7, padding:'3px 10px', fontSize:'.72rem', fontWeight:700, color:'#374151' }}>{a}</span>
                         ))}
                       </div>
 
-                      {/* ── LIVE PAYMENT STATUS INDICATOR ── */}
+                      {/* ── LIVE STATUS ── */}
                       <div style={{
                         display:'flex', alignItems:'center', justifyContent:'center', gap:'.5rem',
                         padding:'.7rem 1rem', borderRadius:10,
@@ -877,7 +878,7 @@ export default function MenuPage() {
                         border: `1.5px solid ${paymentConfirmed ? 'rgba(22,163,74,.35)' : 'rgba(245,158,11,.35)'}`,
                         fontSize:'.83rem', fontWeight:700,
                         color: paymentConfirmed ? '#15803d' : '#d97706',
-                        transition:'all .5s ease', marginBottom:'.75rem'
+                        transition:'all .5s ease', marginBottom:'.75rem',
                       }}>
                         {paymentConfirmed ? (
                           <>
@@ -887,7 +888,7 @@ export default function MenuPage() {
                         ) : (
                           <>
                             <span style={{ display:'inline-block', width:14, height:14, border:'2px solid #d97706', borderTop:'2px solid transparent', borderRadius:'50%', animation:'spinSmooth .8s linear infinite', flexShrink:0 }} />
-                            Waiting for payment… (checking every 3 sec)
+                            Waiting for payment… (auto-detects after you pay)
                           </>
                         )}
                       </div>
@@ -896,10 +897,12 @@ export default function MenuPage() {
                         ⚠️ Do <strong>NOT</strong> click confirm until you see the green "Payment Confirmed" message above
                       </p>
 
-                      {/* Regenerate link */}
                       <div style={{ marginTop:'.65rem' }}>
-                        <button onClick={generateRazorpayQR} style={{ background:'none', border:'none', color:'#6366f1', fontSize:'.75rem', fontWeight:600, cursor:'pointer', textDecoration:'underline' }}>
-                          🔄 Generate new QR
+                        <button
+                          onClick={generatePaymentLink}
+                          style={{ background:'none', border:'none', color:'#6366f1', fontSize:'.75rem', fontWeight:600, cursor:'pointer', textDecoration:'underline' }}
+                        >
+                          🔄 Generate new link
                         </button>
                       </div>
                     </div>
@@ -917,14 +920,14 @@ export default function MenuPage() {
                     onClick={placeOrder}
                     style={{
                       flex:1, padding:'.9rem',
-                      background: 'linear-gradient(135deg,#16a34a,#15803d)',
+                      background:'linear-gradient(135deg,#16a34a,#15803d)',
                       color:'white', border:'none', borderRadius:11,
                       fontFamily:"'DM Sans',sans-serif", fontSize:'.9rem', fontWeight:700,
                       cursor: placing ? 'not-allowed' : 'pointer',
                       opacity: placing ? .7 : 1,
                       boxShadow:'0 4px 14px rgba(22,163,74,.3)',
                       display:'flex', alignItems:'center', justifyContent:'center', gap:'.4rem',
-                      transition:'all .15s'
+                      transition:'all .15s',
                     }}
                   >
                     {placing ? '⏳ Placing…' : `💵 Place COD Order · ₹${totalPrice.toFixed(2)}`}
@@ -946,7 +949,7 @@ export default function MenuPage() {
                       opacity: placing ? .7 : 1,
                       boxShadow: paymentConfirmed ? '0 4px 14px rgba(22,163,74,.3)' : 'none',
                       display:'flex', alignItems:'center', justifyContent:'center', gap:'.4rem',
-                      transition:'all .4s ease'
+                      transition:'all .4s ease',
                     }}
                   >
                     {placing ? '⏳ Placing…' : paymentConfirmed

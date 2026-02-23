@@ -49,14 +49,12 @@ app.post(
         return res.status(400).send('Invalid signature');
       }
 
-      const event = JSON.parse(bodyString);
+        const event = JSON.parse(bodyString);
+        if (event.event === 'payment_link.paid') {
+          const qrId  = event.payload.payment_link.entity.id;
+          const txnId = event.payload.payment.entity.id;
 
-      // Razorpay fires this when UPI QR is paid
-      if (event.event === 'qr_code.credited') {
-        const qrId = event.payload.qr_code.entity.id;
-        const txnId = event.payload.payment.entity.id;
-
-        await db.collection('pendingPayments').doc(qrId).update({
+          await db.collection('pendingPayments').doc(qrId).update({
           status:        'paid',
           transactionId: txnId,
           paidAt:        admin.firestore.FieldValue.serverTimestamp(),
@@ -413,7 +411,6 @@ app.post('/api/create-payment-qr', async (req, res) => {
       close_by:       Math.floor(Date.now() / 1000) + 600, // 10 min expiry
     });
 
-    // Save qr.id → orderId mapping in Firestore
     await db.collection('pendingPayments').doc(qr.id).set({
       orderId,
       amount,
@@ -421,7 +418,6 @@ app.post('/api/create-payment-qr', async (req, res) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    // Return qrId and the actual QR image URL
     res.json({ qrId: qr.id, qrImageUrl: qr.image_url });
 
   } catch (err) {
