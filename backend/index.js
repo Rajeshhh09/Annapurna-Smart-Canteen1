@@ -403,31 +403,29 @@ app.post('/api/create-payment-qr', async (req, res) => {
   try {
     const { amount, orderId } = req.body;
 
-    const qr = await razorpay.qrCode.create({
-      type:           'upi_qr',
-      name:           'Annapurna Smart Canteen',
-      usage:          'single_use',
-      fixed_amount:   true,
-      payment_amount: Math.round(amount * 100), // paise
-      description:    `Order #${orderId}`,
-      close_by:       Math.floor(Date.now() / 1000) + 600, // 10 min expiry
+    const paymentLink = await razorpay.paymentLink.create({
+      amount: Math.round(amount * 100),
+      currency: "INR",
+      description: `Order ${orderId}`,
+      customer: {
+        name: "Customer",
+      },
+      notify: {
+        sms: false,
+        email: false
+      }
     });
 
-    // Save QR → orderId mapping in Firestore
-    await db.collection('pendingPayments').doc(qr.id).set({
-      orderId,
-      amount,
-      status:    'pending',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    res.json({
+      qrId: paymentLink.id,
+      qrImageUrl: paymentLink.short_url
     });
 
-    res.json({ qrId: qr.id, qrImageUrl: qr.image_url });
   } catch (err) {
-    console.error('QR creation error:', err);
+    console.error("QR creation error:", err);
     res.status(500).json({ error: err.message });
   }
 });
-
 
 // ── ROUTE 2: Frontend polls this every 3 sec to check if paid ─────────────
 app.get('/api/payment-status/:qrId', async (req, res) => {
