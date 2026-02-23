@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -505,7 +504,7 @@ export default function MenuPage() {
     if (checkoutOpen) {
       setPaymentMethod(defaultPayment);
     }
-  }, [checkoutOpen]);
+  }, [checkoutOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Cart helpers ──────────────────────────────────────────────────────────
   const addToCart = (item) => {
