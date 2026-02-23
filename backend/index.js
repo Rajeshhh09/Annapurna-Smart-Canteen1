@@ -408,11 +408,6 @@ app.post('/api/create-payment-qr', async (req, res) => {
       customer: {
         name: "Customer",
       },
-      notify: {
-        sms: false,
-        email: false,
-      },
-      callback_method: "get",
     });
 
     await db.collection('pendingPayments').doc(link.id).set({
@@ -428,8 +423,8 @@ app.post('/api/create-payment-qr', async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Payment link error:", err);
-    res.status(500).json({ error: err.message });
+    console.error("Payment link error:", err?.error || err);
+    res.status(500).json({ error: err?.error || err.message });
   }
 });
 
