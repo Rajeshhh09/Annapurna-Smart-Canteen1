@@ -504,15 +504,9 @@ export default function MenuPage() {
   // ── NEW: Generate Razorpay QR + start polling ─────────────────────────────
   const generateRazorpayQR = async () => {
   if (!deliveryName.trim() || !deliveryLocation.trim()) {
-    alert('Please fill in your name and delivery location first');
+    alert("Please fill in your details first");
     return;
   }
-
-  stopPolling();
-  setQrData(null);
-  setPaymentConfirmed(false);
-  setQrExpired(false);
-  setQrLoading(true);
 
   try {
     const tempOrderId = `ANNA_${Date.now()}`;
@@ -522,36 +516,12 @@ export default function MenuPage() {
       orderId: tempOrderId,
     });
 
-    const qrId = res.data.qrId;
-
-    setQrData({
-      qrId,
-      qrImageUrl: res.data.qrImageUrl,
-    });
-
-    // pollingRef.current = setInterval(async () => {
-    //   try {
-    //     const statusRes = await axios.get(`${API}/api/payment-status/${qrId}`);
-    //     if (statusRes.data.status === 'paid') {
-    //       setPaymentConfirmed(true);
-    //       stopPolling();
-    //     }
-    //   } catch (e) {
-    //     console.error('Poll error:', e);
-    //   }
-    // }, 3000);
-
-    expireTimerRef.current = setTimeout(() => {
-      stopPolling();
-      setQrExpired(true);
-      setPaymentConfirmed(false);
-    }, 600000);
+    // Redirect user to Razorpay hosted payment page
+    window.location.href = res.data.paymentUrl;
 
   } catch (err) {
-    console.error('QR generation error:', err);
-    alert('Failed to generate payment QR. Please try again.');
-  } finally {
-    setQrLoading(false);
+    console.error("Payment Link error:", err);
+    alert("Failed to initiate payment. Try again.");
   }
 };
 
