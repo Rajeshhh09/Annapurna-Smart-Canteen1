@@ -358,7 +358,7 @@ export default function Login() {
     setError('');
     setGoogleLoading(true);
     try {
-      const res = await axios.post(`${API}/auth/google`, {
+      const res = await axios.post(`${API}/api/auth/google`, {
         credential: credentialResponse.credential,
       });
       await signInWithCustomToken(auth, res.data.customToken);
