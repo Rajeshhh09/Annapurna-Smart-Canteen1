@@ -1109,7 +1109,7 @@ export default function MenuPage() {
                             ))}
                           </div>
 
-                          {/* ── STEP 2: AFTER PAYING — check button ── */}
+                          {/* ── STEP 2: AFTER PAYING — check button ──
                           {!manualCheckFailed && (
                             <div style={{ background: darkMode ? 'rgba(22,163,74,.12)' : '#f0fdf4', border:'2px solid rgba(22,163,74,.35)', borderRadius:12, padding:'1rem', marginBottom:'.75rem' }}>
                               <p style={{ fontSize:'.8rem', color: darkMode ? '#86efac' : '#166534', fontWeight:600, marginBottom:'.6rem' }}>
@@ -1125,7 +1125,7 @@ export default function MenuPage() {
                                   : <>✅ I've Paid — Verify Now</>}
                               </button>
                             </div>
-                          )}
+                          )} */}
 
                           {/* ── STEP 3: Auto-detection FAILED → Self-confirm fallback ── */}
                           {manualCheckFailed && (
