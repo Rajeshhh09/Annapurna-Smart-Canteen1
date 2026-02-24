@@ -418,7 +418,7 @@ app.post('/api/create-payment-qr', async (req, res) => {
       currency:    'INR',
       description: `Annapurna Canteen - Order ${orderId}`,
       customer:    { name: 'Customer' },
-      expire_by:   Math.floor(Date.now() / 1000) + 600,
+      expire_by:   Math.floor(Date.now() / 1000) + 900,
     });
 
     await db.collection('pendingPayments').doc(link.id).set({
