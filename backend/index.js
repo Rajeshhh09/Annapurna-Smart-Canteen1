@@ -1,35 +1,36 @@
-const express = require('express');
-const cors = require('cors');
-const admin = require('firebase-admin');
-require('dotenv').config();
-
-require('dotenv').config();
-const Razorpay = require('razorpay');
+const express  = require('express');
+const cors     = require('cors');
+const admin    = require('firebase-admin');
 const crypto   = require('crypto');
+const Razorpay = require('razorpay');
+const { OAuth2Client } = require('google-auth-library');
+require('dotenv').config();
 
+// ── Razorpay client ────────────────────────────────────────────────────────
 const razorpay = new Razorpay({
   key_id:     process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// Initialize Firebase Admin
-// const serviceAccount = require('./firebase-adminsdk.json');
-// admin.initializeApp({
-//   credential: admin.credential.cert(serviceAccount),
-//   projectId: process.env.FIREBASE_PROJECT_ID,
-// });
+// ── Google OAuth client ────────────────────────────────────────────────────
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// ── Firebase Admin ─────────────────────────────────────────────────────────
 admin.initializeApp({
   credential: admin.credential.cert({
-    projectId: process.env.FIREBASE_PROJECT_ID,
+    projectId:   process.env.FIREBASE_PROJECT_ID,
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+    privateKey:  process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
   }),
 });
 
-const db = admin.firestore();
+const db  = admin.firestore();
 const app = express();
 
-// ⚠️ Webhook route MUST be before express.json() to access raw body
+// ── CORS — must be first middleware ────────────────────────────────────────
+app.use(cors());
+
+// ── Webhook route — needs raw body, MUST come before express.json() ────────
 app.post(
   '/api/razorpay-webhook',
   express.raw({ type: 'application/json' }),
@@ -38,7 +39,6 @@ app.post(
       const signature  = req.headers['x-razorpay-signature'];
       const bodyString = req.body.toString();
 
-      // Verify signature
       const expected = crypto
         .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET)
         .update(bodyString)
@@ -49,18 +49,20 @@ app.post(
         return res.status(400).send('Invalid signature');
       }
 
-        const event = JSON.parse(bodyString);
-        if (event.event === 'payment_link.paid') {
-          const qrId  = event.payload.payment_link.entity.id;
-          const txnId = event.payload.payment.entity.id;
+      const event = JSON.parse(bodyString);
+      console.log('Webhook received:', event.event);
 
-          await db.collection('pendingPayments').doc(qrId).update({
+      if (event.event === 'payment_link.paid') {
+        const linkId = event.payload.payment_link.entity.id;
+        const txnId  = event.payload.payment.entity.id;
+
+        await db.collection('pendingPayments').doc(linkId).update({
           status:        'paid',
           transactionId: txnId,
           paidAt:        admin.firestore.FieldValue.serverTimestamp(),
         });
 
-        console.log(`✅ Payment confirmed for QR: ${qrId}, TXN: ${txnId}`);
+        console.log(`Webhook: payment confirmed for link ${linkId}`);
       }
 
       res.json({ status: 'ok' });
@@ -71,39 +73,127 @@ app.post(
   }
 );
 
+// ── JSON body parser — after webhook ──────────────────────────────────────
 app.use(express.json());
-app.use(cors());
 
 // ============================================================
-// ===== MENU ROUTES ==========================================
+// GOOGLE AUTH
 // ============================================================
 
-// ===== GET /api/menu =====
-// Returns ALL menu items (in stock and out of stock)
-// Frontend handles OOS display — admin needs to see everything too
+// POST /api/auth/google
+// Frontend sends the Google credential (ID token) here.
+// We verify it, find-or-create the Firebase user, and return
+// a Firebase custom token so the frontend can call
+// signInWithCustomToken(auth, customToken).
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) {
+      return res.status(400).json({ error: 'Google credential is required' });
+    }
+
+    // Step 1: Verify the Google ID token
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken:  credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      payload = ticket.getPayload();
+    } catch (verifyErr) {
+      console.error('Google token verification failed:', verifyErr.message);
+      return res.status(401).json({ error: 'Invalid Google token. Please try again.' });
+    }
+
+    const { sub: googleId, email, name, picture } = payload;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Google account has no email address.' });
+    }
+
+    console.log(`Google auth: ${email} (${name})`);
+
+    // Step 2: Find or create the user in Firebase Auth
+    let firebaseUid;
+
+    try {
+      const existingUser = await admin.auth().getUserByEmail(email);
+      firebaseUid = existingUser.uid;
+      console.log(`Existing Firebase user: ${firebaseUid}`);
+
+      // Update profile photo if missing
+      if (picture && !existingUser.photoURL) {
+        await admin.auth().updateUser(firebaseUid, { photoURL: picture });
+      }
+    } catch (getUserErr) {
+      if (getUserErr.code === 'auth/user-not-found') {
+        // Create new Firebase user
+        const newUser = await admin.auth().createUser({
+          uid:           `google_${googleId}`,
+          email,
+          displayName:   name    || email.split('@')[0],
+          photoURL:      picture || null,
+          emailVerified: true,
+        });
+        firebaseUid = newUser.uid;
+        console.log(`Created new Firebase user: ${firebaseUid} (${email})`);
+
+        // Save profile to Firestore
+        await db.collection('users').doc(firebaseUid).set({
+          email,
+          displayName:   name    || '',
+          photoURL:      picture || '',
+          provider:      'google',
+          loyaltyPoints: 0,
+          createdAt:     admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+      } else {
+        throw getUserErr;
+      }
+    }
+
+    // Step 3: Create Firebase custom token
+    const customToken = await admin.auth().createCustomToken(firebaseUid, {
+      provider: 'google',
+      email,
+    });
+
+    console.log(`Custom token created for ${email}`);
+
+    res.json({
+      customToken,
+      user: {
+        uid:         firebaseUid,
+        email,
+        displayName: name    || '',
+        photoURL:    picture || '',
+      },
+    });
+  } catch (err) {
+    console.error('Google auth error:', err);
+    res.status(500).json({ error: 'Authentication failed. Please try again.' });
+  }
+});
+
+// ============================================================
+// MENU ROUTES
+// ============================================================
+
 app.get('/api/menu', async (req, res) => {
   try {
     const snapshot = await db.collection('menu').get();
     const menu = [];
-    snapshot.forEach(doc => {
-      menu.push({ id: doc.id, ...doc.data() });
-    });
+    snapshot.forEach(doc => menu.push({ id: doc.id, ...doc.data() }));
     res.json(menu);
   } catch (err) {
-    console.error('Error fetching menu:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ===== POST /api/menu =====
-// Now also saves: prepTime, description, inStock
 app.post('/api/menu', async (req, res) => {
   try {
     const { name, price, category, imageUrl, prepTime, description } = req.body;
-
-    if (!name || !price) {
-      return res.status(400).json({ error: 'Name and price are required' });
-    }
+    if (!name || !price) return res.status(400).json({ error: 'Name and price are required' });
 
     const newItem = {
       name,
@@ -111,115 +201,82 @@ app.post('/api/menu', async (req, res) => {
       category:    category    || 'Other',
       imageUrl:    imageUrl    || null,
       description: description || '',
-      prepTime:    parseInt(prepTime) || 10, // ← NEW: prep time in minutes
-      inStock:     true,                     // ← NEW: default available
-      available:   true,                     // keep old field for compatibility
+      prepTime:    parseInt(prepTime) || 10,
+      inStock:     true,
+      available:   true,
       createdAt:   admin.firestore.FieldValue.serverTimestamp(),
     };
 
     const docRef = await db.collection('menu').add(newItem);
     res.json({ id: docRef.id, ...newItem });
   } catch (err) {
-    console.error('Error adding menu item:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ===== PUT /api/menu/:id =====
-// Now also updates: prepTime, description
 app.put('/api/menu/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { name, price, available, category, imageUrl, prepTime, description } = req.body;
-
     const docRef = db.collection('menu').doc(id);
-    const doc = await docRef.get();
-    if (!doc.exists) {
-      return res.status(404).json({ error: 'Menu item not found' });
-    }
+    const doc    = await docRef.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Menu item not found' });
 
-    const existing = doc.data();
-
+    const e = doc.data();
     await docRef.update({
-      name:        name        || existing.name,
-      price:       price       ? parseFloat(price) : existing.price,
-      available:   available   !== undefined ? Boolean(available) : existing.available,
-      category:    category    || existing.category,
-      imageUrl:    imageUrl    !== undefined ? imageUrl : existing.imageUrl,
-      description: description !== undefined ? description : (existing.description || ''),
-      prepTime:    prepTime    ? parseInt(prepTime) : (existing.prepTime || 10), // ← NEW
+      name:        name        || e.name,
+      price:       price       ? parseFloat(price) : e.price,
+      available:   available   !== undefined ? Boolean(available) : e.available,
+      category:    category    || e.category,
+      imageUrl:    imageUrl    !== undefined ? imageUrl : e.imageUrl,
+      description: description !== undefined ? description : (e.description || ''),
+      prepTime:    prepTime    ? parseInt(prepTime) : (e.prepTime || 10),
     });
-
     res.json({ success: true });
   } catch (err) {
-    console.error('Error updating menu item:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ===== PUT /api/menu/:id/stock =====  ← NEW ROUTE
-// Toggles inStock true/false — called by Admin "In Stock / OOS" button
 app.put('/api/menu/:id/stock', async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id }      = req.params;
     const { inStock } = req.body;
-
-    if (inStock === undefined) {
-      return res.status(400).json({ error: 'inStock field is required' });
-    }
+    if (inStock === undefined) return res.status(400).json({ error: 'inStock field is required' });
 
     const docRef = db.collection('menu').doc(id);
-    const doc = await docRef.get();
-    if (!doc.exists) {
-      return res.status(404).json({ error: 'Menu item not found' });
-    }
+    const doc    = await docRef.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Menu item not found' });
 
-    await docRef.update({
-      inStock:   Boolean(inStock),
-      available: Boolean(inStock), // keep both fields in sync
-    });
-
-    console.log(`✅ Stock updated for ${id}: inStock = ${inStock}`);
+    await docRef.update({ inStock: Boolean(inStock), available: Boolean(inStock) });
     res.json({ success: true, inStock: Boolean(inStock) });
   } catch (err) {
-    console.error('Error updating stock status:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ===== DELETE /api/menu/:id =====
 app.delete('/api/menu/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    const docRef = db.collection('menu').doc(id);
-    const doc = await docRef.get();
-    if (!doc.exists) {
-      return res.status(404).json({ error: 'Menu item not found' });
-    }
+    const docRef = db.collection('menu').doc(req.params.id);
+    const doc    = await docRef.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Menu item not found' });
     await docRef.delete();
     res.json({ success: true });
   } catch (err) {
-    console.error('Error deleting menu item:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // ============================================================
-// ===== ORDER ROUTES =========================================
+// ORDER ROUTES
 // ============================================================
 
-// ===== POST /api/orders =====
-// Now also saves: eta, pointsEarned
 app.post('/api/orders', async (req, res) => {
   try {
     const {
-      userId,
-      items,
-      total,
-      deliveryName,
-      deliveryLocation,
-      eta,          // ← NEW: estimated delivery time string e.g. "20–25 mins"
-      pointsEarned, // ← NEW: loyalty points earned on this order
+      userId, items, total, deliveryName, deliveryLocation,
+      eta, pointsEarned,
+      paymentMethod, razorpayLinkId, paymentStatus, status,
     } = req.body;
 
     if (!userId || !items || total == null) {
@@ -230,48 +287,41 @@ app.post('/api/orders', async (req, res) => {
       userId,
       items,
       total:            parseFloat(total),
-      status:           'Pending',
+      status:           status          || 'Pending',
+      paymentMethod:    paymentMethod   || 'cod',
+      paymentStatus:    paymentStatus   || 'pending',
+      razorpayLinkId:   razorpayLinkId  || null,
       timestamp:        admin.firestore.FieldValue.serverTimestamp(),
-      deliveryName:     deliveryName     || '',
+      deliveryName:     deliveryName    || '',
       deliveryLocation: deliveryLocation || '',
-      eta:              eta              || null, // ← NEW
-      pointsEarned:     pointsEarned     || 0,   // ← NEW
+      eta:              eta             || null,
+      pointsEarned:     pointsEarned    || 0,
     };
 
     const docRef = await db.collection('orders').add(newOrder);
+    console.log(`New order: ${docRef.id} | ${paymentMethod} | Rs.${total}`);
     res.json({ id: docRef.id, ...newOrder });
   } catch (err) {
-    console.error('Error creating order:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ===== GET /api/orders (Admin — all orders) =====
 app.get('/api/orders', async (req, res) => {
   try {
     const snapshot = await db.collection('orders').orderBy('timestamp', 'desc').get();
     const orders = [];
-    snapshot.forEach(doc => {
-      orders.push({ id: doc.id, ...doc.data() });
-    });
+    snapshot.forEach(doc => orders.push({ id: doc.id, ...doc.data() }));
     res.json(orders);
   } catch (err) {
-    console.error('Error fetching all orders:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ===== GET /api/orders/user/:userId (Student — their own orders) =====
-// ⚠️  Must be defined BEFORE /api/orders/:id to avoid route conflict
+// ⚠️ Must be before /api/orders/:id to avoid route conflict
 app.get('/api/orders/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
-    }
-
-    console.log('🔍 Fetching orders for userId:', userId);
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
 
     const snapshot = await db.collection('orders')
       .where('userId', '==', userId)
@@ -279,169 +329,166 @@ app.get('/api/orders/user/:userId', async (req, res) => {
       .get();
 
     const orders = [];
-    snapshot.forEach(doc => {
-      orders.push({ id: doc.id, ...doc.data() });
-    });
-
-    console.log('✅ Found orders:', orders.length);
+    snapshot.forEach(doc => orders.push({ id: doc.id, ...doc.data() }));
     res.json(orders);
   } catch (err) {
-    console.error('❌ Error fetching user orders:', err);
     if (err.code === 9) {
-      return res.status(500).json({
-        error: 'Missing Firestore index. Create composite index for userId + timestamp in Firebase console.',
-      });
+      return res.status(500).json({ error: 'Missing Firestore index. Create composite index for userId + timestamp.' });
     }
     res.status(500).json({ error: err.message });
   }
 });
 
-// ===== PUT /api/orders/:id/status =====
 app.put('/api/orders/:id/status', async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id }     = req.params;
     const { status } = req.body;
-
-    const docRef = db.collection('orders').doc(id);
-    const doc = await docRef.get();
-    if (!doc.exists) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-
+    const docRef     = db.collection('orders').doc(id);
+    const doc        = await docRef.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Order not found' });
     await docRef.update({ status });
     res.json({ success: true });
   } catch (err) {
-    console.error('Error updating order status:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ===== DELETE /api/orders/:id =====
 app.delete('/api/orders/:id', async (req, res) => {
   try {
-    const { id } = req.params;
-    await db.collection('orders').doc(id).delete();
+    await db.collection('orders').doc(req.params.id).delete();
     res.json({ success: true });
   } catch (err) {
-    console.error('Error deleting order:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // ============================================================
-// ===== LOYALTY POINTS ROUTES ================================  ← NEW SECTION
+// LOYALTY ROUTES
 // ============================================================
 
-// ===== GET /api/loyalty/:userId =====
-// Get a user's current loyalty points
 app.get('/api/loyalty/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const docRef = db.collection('users').doc(userId);
-    const doc = await docRef.get();
-
-    if (!doc.exists) {
-      // User doc doesn't exist yet — return 0 points
-      return res.json({ userId, loyaltyPoints: 0, tier: 'Bronze' });
-    }
+    const docRef     = db.collection('users').doc(userId);
+    const doc        = await docRef.get();
+    if (!doc.exists) return res.json({ userId, loyaltyPoints: 0, tier: 'Bronze' });
 
     const points = doc.data().loyaltyPoints || 0;
     const tier   = points >= 500 ? 'Gold' : points >= 200 ? 'Silver' : 'Bronze';
-
     res.json({ userId, loyaltyPoints: points, tier });
   } catch (err) {
-    console.error('Error fetching loyalty points:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ===== POST /api/loyalty/:userId/add =====
-// Add points to a user after a purchase
-// Body: { points: 20 }
 app.post('/api/loyalty/:userId/add', async (req, res) => {
   try {
     const { userId } = req.params;
     const { points } = req.body;
-
-    if (!points || points <= 0) {
-      return res.status(400).json({ error: 'points must be a positive number' });
-    }
+    if (!points || points <= 0) return res.status(400).json({ error: 'points must be positive' });
 
     const docRef = db.collection('users').doc(userId);
     const doc    = await docRef.get();
 
     if (!doc.exists) {
-      // Create user doc with initial points
       await docRef.set({ loyaltyPoints: points, createdAt: admin.firestore.FieldValue.serverTimestamp() });
     } else {
-      // Increment existing points
-      await docRef.update({
-        loyaltyPoints: admin.firestore.FieldValue.increment(points),
-      });
+      await docRef.update({ loyaltyPoints: admin.firestore.FieldValue.increment(points) });
     }
 
     const updated = await docRef.get();
     const total   = updated.data().loyaltyPoints;
     const tier    = total >= 500 ? 'Gold' : total >= 200 ? 'Silver' : 'Bronze';
-
-    console.log(`⭐ +${points} pts for user ${userId} → total: ${total} (${tier})`);
     res.json({ success: true, loyaltyPoints: total, tier });
   } catch (err) {
-    console.error('Error adding loyalty points:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // ============================================================
-// ===== PAYMENT ROUTES =======================================  ← NEW SECTION
+// PAYMENT ROUTES
 // ============================================================
 
-// ── ROUTE 1: Create Razorpay UPI QR for an order ──────────────────────────
 app.post('/api/create-payment-qr', async (req, res) => {
   try {
     const { amount, orderId } = req.body;
 
     const link = await razorpay.paymentLink.create({
-      amount: Math.round(amount * 100),
-      currency: "INR",
-      description: `Order ${orderId}`,
-      customer: {
-        name: "Customer",
-      },
+      amount:      Math.round(amount * 100),
+      currency:    'INR',
+      description: `Annapurna Canteen - Order ${orderId}`,
+      customer:    { name: 'Customer' },
+      expire_by:   Math.floor(Date.now() / 1000) + 600,
     });
 
     await db.collection('pendingPayments').doc(link.id).set({
       orderId,
       amount,
-      status: "pending",
+      status:    'pending',
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    res.json({
-      qrId: link.id,
-      paymentUrl: link.short_url,
-    });
-
+    console.log(`Payment link created: ${link.id} for Rs.${amount}`);
+    res.json({ qrId: link.id, paymentUrl: link.short_url });
   } catch (err) {
-    console.error("Payment link error:", err?.error || err);
-    res.status(500).json({ error: err?.error || err.message });
+    console.error('Payment link error:', err?.error || err);
+    res.status(500).json({ error: err?.error?.description || err.message });
   }
 });
 
-// ── ROUTE 2: Frontend polls this every 3 sec to check if paid ─────────────
+// Checks Firestore first (webhook fast path), then hits Razorpay API directly
+// (fixes the bug where webhook never fires and status stays "pending" forever)
 app.get('/api/payment-status/:qrId', async (req, res) => {
   try {
-    const doc = await db.collection('pendingPayments').doc(req.params.qrId).get();
+    const { qrId } = req.params;
+    const docRef   = db.collection('pendingPayments').doc(qrId);
+    const doc      = await docRef.get();
+
     if (!doc.exists) return res.status(404).json({ status: 'not_found' });
-    res.json({ status: doc.data().status });
+
+    const data = doc.data();
+
+    // Fast path: webhook already updated Firestore
+    if (data.status === 'paid') {
+      return res.json({ status: 'paid', transactionId: data.transactionId || null });
+    }
+
+    // Slow path: call Razorpay API directly — no webhook dependency
+    try {
+      const paymentLink = await razorpay.paymentLink.fetch(qrId);
+      console.log(`Razorpay API status for ${qrId}: ${paymentLink.status}`);
+
+      if (paymentLink.status === 'paid') {
+        let txnId = null;
+        try {
+          const payments = await razorpay.paymentLink.fetchPayments(qrId);
+          txnId = payments?.items?.[0]?.payment_id || null;
+        } catch (_) {}
+
+        await docRef.update({
+          status:        'paid',
+          transactionId: txnId,
+          paidAt:        admin.firestore.FieldValue.serverTimestamp(),
+          detectedBy:    'api-poll',
+        });
+
+        console.log(`Payment confirmed via API poll: ${qrId}`);
+        return res.json({ status: 'paid', transactionId: txnId });
+      }
+
+      return res.json({ status: paymentLink.status || 'pending' });
+    } catch (rzErr) {
+      console.error(`Razorpay API error for ${qrId}:`, rzErr?.error?.description || rzErr.message);
+      return res.json({ status: data.status });
+    }
   } catch (err) {
+    console.error('Payment status error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // ============================================================
 const PORT = process.env.PORT || 5000;
-
 app.listen(PORT, () => {
-  console.log("server mast chal rha hai port", PORT, "pe");
+  console.log(`Server running on port ${PORT}`);
 });

@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithCustomToken } from 'firebase/auth';
+import { GoogleLogin } from '@react-oauth/google';
 import { auth } from '../firebase';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+
+const API = 'https://annapurna-smart-canteen1.onrender.com';
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
@@ -100,7 +104,7 @@ const styles = `
     font-size: 0.85rem;
     color: #9ca3af;
     text-align: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1.75rem;
     font-weight: 400;
   }
 
@@ -115,6 +119,71 @@ const styles = `
     text-align: center;
   }
 
+  /* ── Google Button Wrapper ── */
+  .google-btn-wrap {
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .google-btn-wrap > div {
+    width: 100% !important;
+  }
+
+  /* Force Google button to full width */
+  .google-btn-wrap iframe {
+    width: 100% !important;
+  }
+
+  .google-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1rem;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #6b7280;
+    background: #fafafa;
+    width: 100%;
+  }
+
+  .spin-sm {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #e5e7eb;
+    border-top-color: #FF7A33;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+
+  /* ── Divider ── */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .divider-line {
+    flex: 1;
+    height: 1px;
+    background: #f0f0f0;
+  }
+
+  .divider-text {
+    font-size: 0.72rem;
+    color: #c4c4c4;
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+
+  /* ── Fields ── */
   .field-group {
     display: flex;
     flex-direction: column;
@@ -189,7 +258,7 @@ const styles = `
     letter-spacing: 0.5px;
     margin-top: 0.5rem;
     box-shadow: 0 4px 16px rgba(255,107,0,0.35);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s;
     position: relative;
     overflow: hidden;
   }
@@ -202,33 +271,21 @@ const styles = `
     pointer-events: none;
   }
 
-  .submit-btn:hover {
+  .submit-btn:hover:not(:disabled) {
     transform: translateY(-1px);
     box-shadow: 0 8px 24px rgba(255,107,0,0.45);
   }
 
-  .submit-btn:active {
-    transform: translateY(0);
+  .submit-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
   }
 
-  .divider {
+  .bottom-divider {
     display: flex;
     align-items: center;
     gap: 1rem;
     margin: 1.5rem 0 1.25rem;
-  }
-
-  .divider-line {
-    flex: 1;
-    height: 1px;
-    background: #f0f0f0;
-  }
-
-  .divider-text {
-    font-size: 0.72rem;
-    color: #c4c4c4;
-    font-weight: 600;
-    letter-spacing: 1px;
   }
 
   .signup-row {
@@ -271,20 +328,51 @@ const styles = `
 `;
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail]               = useState('');
+  const [password, setPassword]         = useState('');
+  const [error, setError]               = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading]           = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
 
+  // ── Email / Password login ─────────────────────────────────────────────
   const handleLogin = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
       navigate('/menu');
     } catch (err) {
       setError('Invalid email or password. Please try again.');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  // ── Google login ───────────────────────────────────────────────────────
+  // Flow: Google gives us an ID token → send to backend → backend verifies
+  // with google-auth-library → creates Firebase custom token → we sign in
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError('');
+    setGoogleLoading(true);
+    try {
+      const res = await axios.post(`${API}/api/auth/google`, {
+        credential: credentialResponse.credential,
+      });
+      await signInWithCustomToken(auth, res.data.customToken);
+      navigate('/menu');
+    } catch (err) {
+      console.error('Google login error:', err);
+      setError(err.response?.data?.error || 'Google sign-in failed. Please try again.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError('Google sign-in was cancelled or failed. Please try again.');
   };
 
   return (
@@ -297,25 +385,18 @@ export default function Login() {
           <div className="logo-wrap">
             <div className="logo-ring" />
             <div className="logo-circle">
-              {/* Thali / Bowl with steam SVG logo */}
-              <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
-                {/* Steam lines */}
+              <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
                 <path className="steam-1" d="M18 14 Q17 11 18 8" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" fill="none"/>
                 <path className="steam-2" d="M26 13 Q25 10 26 7" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" fill="none"/>
                 <path className="steam-3" d="M34 14 Q33 11 34 8" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" fill="none"/>
-                {/* Bowl body */}
                 <ellipse cx="26" cy="33" rx="16" ry="4.5" fill="rgba(255,255,255,0.25)"/>
                 <path d="M10 29 Q10 42 26 42 Q42 42 42 29 Z" fill="white"/>
-                {/* Inner bowl shine */}
                 <path d="M15 29 Q15 39 26 39 Q37 39 37 29 Z" fill="rgba(255,122,51,0.12)"/>
-                {/* Rim / lip of bowl */}
                 <ellipse cx="26" cy="29" rx="16" ry="3.5" fill="white"/>
                 <ellipse cx="26" cy="29" rx="14" ry="2.5" fill="rgba(255,107,0,0.18)"/>
-                {/* Small dot garnish in bowl center */}
                 <circle cx="26" cy="34" r="2.5" fill="rgba(255,107,0,0.35)"/>
                 <circle cx="20" cy="32.5" r="1.5" fill="rgba(255,107,0,0.25)"/>
                 <circle cx="32" cy="32.5" r="1.5" fill="rgba(255,107,0,0.25)"/>
-                {/* Base plate */}
                 <ellipse cx="26" cy="42.5" rx="18" ry="2.5" fill="rgba(255,255,255,0.4)"/>
               </svg>
             </div>
@@ -330,6 +411,35 @@ export default function Login() {
           <p className="card-sub">Sign in to your account to continue</p>
 
           {error && <div className="error-box">{error}</div>}
+
+          {/* ── Google Sign-In Button ── */}
+          <div className="google-btn-wrap">
+            {googleLoading ? (
+              <div className="google-loading">
+                <div className="spin-sm" />
+                Signing in with Google…
+              </div>
+            ) : (
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                useOneTap={false}
+                width="372"
+                theme="outline"
+                size="large"
+                text="signin_with"
+                shape="rectangular"
+                logo_alignment="left"
+              />
+            )}
+          </div>
+
+          {/* Divider */}
+          <div className="divider">
+            <div className="divider-line" />
+            <span className="divider-text">OR SIGN IN WITH EMAIL</span>
+            <div className="divider-line" />
+          </div>
 
           <form onSubmit={handleLogin}>
             {/* Email */}
@@ -377,19 +487,16 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Submit */}
-            <button type="submit" className="submit-btn">
-              Sign In →
+            <button type="submit" className="submit-btn" disabled={loading}>
+              {loading ? 'Signing in…' : 'Sign In →'}
             </button>
 
-            {/* Divider */}
-            <div className="divider">
+            <div className="bottom-divider">
               <div className="divider-line" />
               <span className="divider-text">OR</span>
               <div className="divider-line" />
             </div>
 
-            {/* Sign Up */}
             <div className="signup-row">
               Don't have an account?{' '}
               <a href="/register" className="signup-link">Create Account</a>
