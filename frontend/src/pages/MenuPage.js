@@ -282,8 +282,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .action-btn-orange { flex: 1; padding: .9rem; background: linear-gradient(135deg,#FF7A33,#FF5500); color: white; border: none; border-radius: 11px; font-family: 'DM Sans',sans-serif; font-size: .9rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(255,107,0,.3); display: flex; align-items: center; justify-content: center; gap: .4rem; transition: all .15s; }
 .action-btn-orange:hover { transform: translateY(-1px); box-shadow: 0 7px 22px rgba(255,107,0,.4); }
 .action-btn-orange:disabled { background: var(--bg3); color: var(--text4); box-shadow: none; cursor: not-allowed; transform: none; }
-.action-btn-green { flex: 1; padding: .9rem; background: linear-gradient(135deg,#FF7A33,#FF5500); color: white; border: none; border-radius: 11px; font-family: 'DM Sans',sans-serif; font-size: .9rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(255,107,0,.35); display: flex; align-items: center; justify-content: center; gap: .4rem; transition: all .4s ease; }
-.action-btn-green:hover { transform: translateY(-1px); box-shadow: 0 7px 22px rgba(255,107,0,.45); }
+.action-btn-green { flex: 1; padding: .9rem; background: linear-gradient(135deg,#16a34a,#15803d); color: white; border: none; border-radius: 11px; font-family: 'DM Sans',sans-serif; font-size: .9rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(22,163,74,.3); display: flex; align-items: center; justify-content: center; gap: .4rem; transition: all .4s ease; }
 .action-btn-locked { flex: 1; padding: .9rem; background: var(--bg3); color: var(--text4); border: none; border-radius: 11px; font-family: 'DM Sans',sans-serif; font-size: .9rem; font-weight: 700; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: .4rem; }
 
 /* ── RECEIPT MODAL ── */
@@ -365,108 +364,6 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .steam-1 { animation: steamRise 1.8s ease-in-out infinite; }
 .steam-2 { animation: steamRise 1.8s ease-in-out .35s infinite; }
 .steam-3 { animation: steamRise 1.8s ease-in-out .7s infinite; }
-
-/* ═══════════════════════════════════════════
-   TABLET — max-width 1024px
-═══════════════════════════════════════════ */
-@media (max-width: 1024px) {
-  .cart-drawer.open { width: 320px; }
-  .mgrid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
-}
-
-/* ═══════════════════════════════════════════
-   MOBILE — max-width 768px
-═══════════════════════════════════════════ */
-@media (max-width: 768px) {
-  /* Header */
-  .mhdr-in { padding: .65rem 1rem; gap: .5rem; flex-wrap: nowrap; }
-  .logo-sub { display: none; }
-  .nav-right { gap: .3rem; flex-wrap: nowrap; }
-  .nav-btn { padding: .45rem .6rem; font-size: 0; min-width: 38px; justify-content: center; }
-  .nav-btn svg { display: block !important; }
-  .user-name { max-width: 72px; font-size: .75rem; }
-  .user-chip { padding: .35rem .6rem; }
-  .loy-chip { display: none; }
-  .cart-trigger { padding: .48rem .85rem; font-size: .82rem; }
-
-  /* Loyalty banner */
-  .loy-banner { padding: .75rem 1rem; }
-  .loy-inner { gap: .6rem; flex-direction: column; align-items: flex-start; }
-
-  /* Hero */
-  .mhero { padding: 1.75rem 1rem; }
-  .hero-title { font-size: 1.85rem; }
-  .hero-sub { font-size: .82rem; }
-  .hero-eye { font-size: .65rem; padding: .25rem .65rem; }
-
-  /* Layout */
-  .page-body { flex-direction: column; }
-  .menu-area { width: 100%; }
-  .mmain { padding: 1.25rem 1rem 5rem; }
-
-  /* Category pills */
-  .cat-row { gap: .4rem; margin-bottom: 1.25rem; overflow-x: auto; flex-wrap: nowrap; padding-bottom: .25rem; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-  .cat-row::-webkit-scrollbar { display: none; }
-  .cat-pill { padding: .42rem .9rem; font-size: .78rem; flex-shrink: 0; }
-
-  /* Section label */
-  .sec-label { font-size: 1.1rem; margin-bottom: .85rem; }
-
-  /* Menu grid — 2 columns on mobile */
-  .mgrid { grid-template-columns: repeat(2, 1fr); gap: .75rem; }
-  .mcard { border-radius: 13px; }
-  .cbody { padding: .65rem .65rem .7rem; }
-  .cname { font-size: .85rem; }
-  .cdesc { font-size: .72rem; -webkit-line-clamp: 1; }
-  .add-btn { font-size: .77rem; padding: .55rem .4rem; }
-  .qty-ctrl { gap: .35rem; }
-
-  /* Cart drawer — full screen on mobile */
-  .cart-drawer.open {
-    position: fixed !important; top: 0 !important; left: 0 !important;
-    right: 0 !important; bottom: 0 !important;
-    width: 100vw !important; height: 100% !important;
-    z-index: 500 !important; border-left: none !important;
-  }
-
-  /* Modals — slide up from bottom on mobile */
-  .modal-bg { padding: 0; align-items: flex-end; }
-  .modal-box {
-    width: 100% !important; max-width: 100% !important;
-    border-radius: 22px 22px 0 0 !important;
-    max-height: 94vh !important;
-    animation: slideUpMobile .3s ease !important;
-  }
-  .receipt-modal-box {
-    width: 100% !important; max-width: 100% !important;
-    border-radius: 22px 22px 0 0 !important;
-    max-height: 94vh !important;
-    animation: slideUpMobile .3s ease !important;
-  }
-
-  /* Settings panel — full width */
-  .settings-panel { width: 100% !important; max-width: 100% !important; }
-
-  /* Payment method selector */
-  .pm-grid { grid-template-columns: 1fr 1fr !important; }
-
-  /* Checkout action buttons */
-  .checkout-actions { flex-direction: column !important; }
-  .action-btn-green, .action-btn-locked, .cancel-btn { width: 100% !important; }
-}
-
-/* ═══════════════════════════════════════════
-   SMALL PHONES — max-width 400px
-═══════════════════════════════════════════ */
-@media (max-width: 400px) {
-  .hero-title { font-size: 1.55rem; }
-  .mgrid { grid-template-columns: 1fr 1fr; gap: .55rem; }
-  .mhdr-in { padding: .55rem .75rem; }
-  .logo-brand { font-size: 1rem; }
-  .cart-trigger .cart-label { display: none; }
-}
-
-@keyframes slideUpMobile { from { transform: translateY(100%); } to { transform: translateY(0); } }
 `;
 
 // ─── Toggle component ─────────────────────────────────────────────────────────
@@ -1212,7 +1109,7 @@ export default function MenuPage() {
                             ))}
                           </div>
 
-                          {/* ── STEP 2: AFTER PAYING — check button ── */}
+                          {/* ── STEP 2: AFTER PAYING — check button ──
                           {!manualCheckFailed && (
                             <div style={{ background: darkMode ? 'rgba(22,163,74,.12)' : '#f0fdf4', border:'2px solid rgba(22,163,74,.35)', borderRadius:12, padding:'1rem', marginBottom:'.75rem' }}>
                               <p style={{ fontSize:'.8rem', color: darkMode ? '#86efac' : '#166534', fontWeight:600, marginBottom:'.6rem' }}>
@@ -1228,7 +1125,7 @@ export default function MenuPage() {
                                   : <>✅ I've Paid — Verify Now</>}
                               </button>
                             </div>
-                          )}
+                          )} */}
 
                           {/* ── STEP 3: Auto-detection FAILED → Self-confirm fallback ── */}
                           {manualCheckFailed && (
@@ -1270,7 +1167,7 @@ export default function MenuPage() {
 
                       {/* ── PAYMENT CONFIRMED STATE ── */}
                       {paymentConfirmed && (
-                        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'.6rem', padding:'1rem 1.25rem', borderRadius:12, background: darkMode ? 'rgba(255,122,51,.18)' : '#fff7f0', border:'2px solid rgba(255,122,51,.5)', fontSize:'.9rem', fontWeight:700, color: darkMode ? '#ffb380' : '#c2410c' }}>
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'.6rem', padding:'1rem 1.25rem', borderRadius:12, background: darkMode ? 'rgba(22,163,74,.2)' : '#f0fdf4', border:'2px solid rgba(22,163,74,.5)', fontSize:'.9rem', fontWeight:700, color:'#15803d' }}>
                           <span style={{ fontSize:'1.4rem' }}>✅</span>
                           <div>
                             <div>Payment Confirmed!</div>
