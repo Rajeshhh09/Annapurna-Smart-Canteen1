@@ -4,260 +4,298 @@ import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
-const styles = `
+const API = 'https://annapurna-smart-canteen1.onrender.com';
+
+// ── Dark mode helpers (synced with MenuPage via localStorage) ─────────────
+const getLS = (k, def) => { try { const v = localStorage.getItem(k); return v !== null ? JSON.parse(v) : def; } catch { return def; } };
+
+const STEPS = ['Pending', 'Preparing', 'Ready', 'Delivered'];
+const STEP_ICONS = { Pending: '🕐', Preparing: '👨‍🍳', Ready: '✅', Delivered: '🎉' };
+
+const makeStyles = (dark) => `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
-
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'DM Sans', sans-serif; background: #faf9f6; }
 
-  /* ── HEADER ── */
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: ${dark ? '#0f0f0f' : '#faf9f6'};
+    color: ${dark ? '#e5e7eb' : '#1f2937'};
+    transition: background .3s, color .3s;
+  }
+
+  /* ── HEADER ─────────────────────────────────────────────────────── */
   .ord-header {
     position: sticky; top: 0; z-index: 100;
-    background: rgba(255,255,255,0.95);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255,122,51,0.1);
-    box-shadow: 0 2px 20px rgba(0,0,0,0.06);
+    background: ${dark ? 'rgba(15,15,15,0.95)' : 'rgba(255,255,255,0.95)'};
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid ${dark ? 'rgba(255,122,51,0.12)' : 'rgba(255,122,51,0.1)'};
+    box-shadow: ${dark ? '0 2px 24px rgba(0,0,0,0.4)' : '0 2px 20px rgba(0,0,0,0.06)'};
   }
   .ord-header-inner {
     max-width: 1000px; margin: 0 auto;
-    padding: 0.85rem 2rem;
+    padding: 0.9rem 2rem;
     display: flex; align-items: center; justify-content: space-between;
   }
   .header-logo { display: flex; align-items: center; gap: 0.75rem; }
   .header-logo-icon {
-    width: 40px; height: 40px;
+    width: 42px; height: 42px;
     background: linear-gradient(145deg, #FF7A33, #FF5500);
     border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 12px rgba(255,107,0,0.3); flex-shrink: 0;
+    box-shadow: 0 4px 14px rgba(255,107,0,0.35); flex-shrink: 0;
   }
-  .header-brand { font-family: 'Playfair Display', serif; font-size: 1.15rem; font-weight: 800; color: #2d1f0e; line-height: 1; }
-  .header-sub { font-size: 0.62rem; color: #FF7A33; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; }
+  .header-brand { font-family: 'Playfair Display', serif; font-size: 1.15rem; font-weight: 800; color: ${dark ? '#f9fafb' : '#2d1f0e'}; line-height: 1.1; }
+  .header-sub { font-size: 0.62rem; color: #FF7A33; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; margin-top: 1px; }
   .back-btn {
-    display: flex; align-items: center; gap: 0.4rem;
-    padding: 0.5rem 1rem;
-    background: #f5f5f0; border: 1.5px solid #e5e7eb; border-radius: 10px;
-    font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 600; color: #374151;
+    display: flex; align-items: center; gap: 0.45rem;
+    padding: 0.55rem 1.1rem;
+    background: ${dark ? 'rgba(255,122,51,0.1)' : '#f5f5f0'};
+    border: 1.5px solid ${dark ? 'rgba(255,122,51,0.25)' : '#e5e7eb'};
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 600;
+    color: ${dark ? '#FFAA77' : '#374151'};
     cursor: pointer; transition: all 0.2s ease;
   }
-  .back-btn:hover { background: #fff; border-color: rgba(255,122,51,0.3); color: #FF7A33; }
+  .back-btn:hover {
+    background: ${dark ? 'rgba(255,122,51,0.18)' : '#fff'};
+    border-color: rgba(255,122,51,0.45); color: #FF7A33;
+    transform: translateX(-2px);
+  }
 
-  /* ── HERO ── */
+  /* ── HERO ─────────────────────────────────────────────────────────── */
   .orders-hero {
-    background: linear-gradient(135deg, #2d1f0e 0%, #3d2a14 60%, #4a3020 100%);
-    padding: 2.75rem 2rem;
+    background: linear-gradient(135deg, #1a0f05 0%, #2d1f0e 50%, #3d2a14 100%);
+    padding: 3rem 2rem;
     position: relative; overflow: hidden;
   }
   .orders-hero::before {
     content: '';
     position: absolute; inset: 0;
-    background: radial-gradient(ellipse at 20% 50%, rgba(255,122,51,0.18) 0%, transparent 55%),
-                radial-gradient(ellipse at 80% 30%, rgba(255,107,0,0.12) 0%, transparent 55%);
+    background:
+      radial-gradient(ellipse at 15% 50%, rgba(255,122,51,0.2) 0%, transparent 55%),
+      radial-gradient(ellipse at 85% 20%, rgba(255,107,0,0.12) 0%, transparent 55%),
+      radial-gradient(ellipse at 50% 100%, rgba(255,85,0,0.08) 0%, transparent 50%);
+  }
+  .orders-hero::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,122,51,0.4), transparent);
   }
   .orders-hero-inner {
     max-width: 1000px; margin: 0 auto;
     position: relative; z-index: 1;
-    display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 2rem;
     flex-wrap: wrap;
   }
-  .hero-left {}
   .hero-eyebrow {
     display: inline-flex; align-items: center; gap: 0.4rem;
-    background: rgba(255,122,51,0.2); border: 1px solid rgba(255,122,51,0.35);
-    color: #FFAA77; font-size: 0.72rem; font-weight: 600; letter-spacing: 2px;
-    text-transform: uppercase; padding: 0.3rem 0.75rem; border-radius: 999px;
-    margin-bottom: 0.75rem;
+    background: rgba(255,122,51,0.15); border: 1px solid rgba(255,122,51,0.3);
+    color: #FFAA77; font-size: 0.7rem; font-weight: 700; letter-spacing: 2.5px;
+    text-transform: uppercase; padding: 0.3rem 0.85rem; border-radius: 999px;
+    margin-bottom: 0.85rem;
   }
   .hero-title {
     font-family: 'Playfair Display', serif;
-    font-size: 2.25rem; font-weight: 800; color: white; line-height: 1.15;
-    margin-bottom: 0.5rem;
+    font-size: 2.5rem; font-weight: 800; color: white; line-height: 1.1;
+    margin-bottom: 0.6rem;
   }
   .hero-title span { color: #FF7A33; }
-  .hero-sub { font-size: 0.88rem; color: rgba(255,255,255,0.55); }
-
-  /* Hero stats */
-  .hero-stats { display: flex; gap: 0.85rem; }
+  .hero-sub { font-size: 0.88rem; color: rgba(255,255,255,0.5); font-weight: 500; }
+  .hero-stats { display: flex; gap: 0.85rem; flex-wrap: wrap; }
   .hero-stat {
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 14px; padding: 0.9rem 1.25rem;
-    backdrop-filter: blur(8px); text-align: center; min-width: 90px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px; padding: 1rem 1.35rem;
+    backdrop-filter: blur(8px); text-align: center; min-width: 95px;
+    transition: background .2s;
   }
-  .hero-stat-val { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 800; color: white; line-height: 1; }
-  .hero-stat-lbl { font-size: 0.68rem; color: rgba(255,255,255,0.5); font-weight: 600; letter-spacing: 0.5px; margin-top: 3px; text-transform: uppercase; }
+  .hero-stat:hover { background: rgba(255,255,255,0.12); }
+  .hero-stat-val { font-family: 'Playfair Display', serif; font-size: 1.7rem; font-weight: 800; color: white; line-height: 1; }
+  .hero-stat-lbl { font-size: 0.65rem; color: rgba(255,255,255,0.45); font-weight: 700; letter-spacing: 1px; margin-top: 4px; text-transform: uppercase; }
 
-  /* ── MAIN ── */
+  /* ── MAIN ─────────────────────────────────────────────────────────── */
   .ord-main { max-width: 1000px; margin: 0 auto; padding: 2rem; }
 
-  /* ── STATUS LEGEND ── */
-  .status-legend {
-    display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 2rem;
-  }
+  /* ── FILTER PILLS ─────────────────────────────────────────────────── */
+  .status-legend { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 2rem; }
   .legend-pill {
-    display: flex; align-items: center; gap: 0.4rem;
-    padding: 0.4rem 0.9rem; border-radius: 999px;
-    font-size: 0.78rem; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; gap: 0.45rem;
+    padding: 0.45rem 1rem; border-radius: 999px;
+    font-size: 0.78rem; font-weight: 700; cursor: pointer;
     border: 1.5px solid transparent; transition: all 0.2s ease;
+    background: ${dark ? '#1a1a1a' : 'white'};
+    color: ${dark ? '#9ca3af' : '#6b7280'};
   }
+  .legend-pill:hover { transform: translateY(-1px); }
   .legend-pill.active { border-color: currentColor; }
-  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .legend-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
-  /* ── ORDER CARD ── */
+  /* ── ORDER CARD ───────────────────────────────────────────────────── */
   .order-card {
-    background: white; border-radius: 18px;
-    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
-    border: 1px solid rgba(0,0,0,0.05);
+    background: ${dark ? '#1a1a1a' : 'white'};
+    border-radius: 20px;
+    box-shadow: ${dark ? '0 4px 24px rgba(0,0,0,0.3)' : '0 2px 16px rgba(0,0,0,0.06)'};
+    border: 1px solid ${dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'};
     overflow: hidden; margin-bottom: 1.25rem;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     animation: fadeUp 0.4s ease both;
   }
-  .order-card:hover { transform: translateY(-3px); box-shadow: 0 10px 32px rgba(0,0,0,0.1); }
+  .order-card:hover {
+    transform: translateY(-4px);
+    box-shadow: ${dark ? '0 12px 40px rgba(0,0,0,0.5)' : '0 10px 32px rgba(0,0,0,0.1)'};
+  }
 
-  /* Card top strip by status */
+  /* Status strip */
   .card-strip { height: 4px; width: 100%; }
   .strip-Pending   { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
   .strip-Preparing { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
-  .strip-Ready     { background: linear-gradient(90deg, #16a34a, #4ade80); }
-  .strip-Delivered { background: linear-gradient(90deg, #9ca3af, #d1d5db); }
+  .strip-Ready     { background: linear-gradient(90deg, #FF7A33, #FF5500); }
+  .strip-Delivered { background: linear-gradient(90deg, #6b7280, #9ca3af); }
 
   .card-top {
-    padding: 1.15rem 1.5rem 0.9rem;
+    padding: 1.2rem 1.5rem 1rem;
     display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
-    border-bottom: 1px solid #f5f5f0;
+    border-bottom: 1px solid ${dark ? 'rgba(255,255,255,0.06)' : '#f5f5f0'};
   }
-  .card-order-id { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; color: #2d1f0e; }
-  .card-time { font-size: 0.75rem; color: #b0b8c1; margin-top: 3px; display: flex; align-items: center; gap: 0.3rem; }
+  .card-order-id {
+    font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 800;
+    color: ${dark ? '#f9fafb' : '#2d1f0e'};
+  }
+  .card-time { font-size: 0.75rem; color: ${dark ? '#6b7280' : '#b0b8c1'}; margin-top: 4px; display: flex; align-items: center; gap: 0.3rem; }
 
   .status-badge {
     display: flex; align-items: center; gap: 0.4rem;
-    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px;
-    text-transform: uppercase; padding: 0.35rem 0.85rem; border-radius: 999px;
+    font-size: 0.7rem; font-weight: 800; letter-spacing: 0.8px;
+    text-transform: uppercase; padding: 0.35rem 0.9rem; border-radius: 999px;
     white-space: nowrap; flex-shrink: 0;
   }
   .status-dot { width: 7px; height: 7px; border-radius: 50%; }
-  .badge-Pending   { background: #fef3c7; color: #d97706; }
-  .dot-Pending   { background: #f59e0b; }
-  .badge-Preparing { background: #dbeafe; color: #2563eb; animation: pulseBadge 1.5s ease-in-out infinite; }
-  .dot-Preparing { background: #3b82f6; }
-  .badge-Ready     { background: #dcfce7; color: #16a34a; }
-  .dot-Ready     { background: #22c55e; }
-  .badge-Delivered { background: #f3f4f6; color: #6b7280; }
-  .dot-Delivered { background: #9ca3af; }
+  .badge-Pending   { background: ${dark ? 'rgba(245,158,11,0.15)' : '#fef3c7'}; color: #d97706; }
+  .dot-Pending     { background: #f59e0b; }
+  .badge-Preparing { background: ${dark ? 'rgba(59,130,246,0.15)' : '#dbeafe'}; color: #3b82f6; animation: pulseBadge 1.5s ease-in-out infinite; }
+  .dot-Preparing   { background: #3b82f6; }
+  .badge-Ready     { background: ${dark ? 'rgba(255,122,51,0.15)' : '#fff3ec'}; color: #FF7A33; }
+  .dot-Ready       { background: #FF7A33; }
+  .badge-Delivered { background: ${dark ? 'rgba(107,114,128,0.15)' : '#f3f4f6'}; color: ${dark ? '#9ca3af' : '#6b7280'}; }
+  .dot-Delivered   { background: #9ca3af; }
 
-  /* Progress tracker */
-  .progress-wrap { padding: 1.1rem 1.5rem; border-bottom: 1px solid #f5f5f0; }
-  .progress-track {
-    display: flex; align-items: center; gap: 0;
-    position: relative;
+  /* ── PROGRESS TRACKER ─────────────────────────────────────────────── */
+  .progress-wrap {
+    padding: 1.1rem 1.5rem;
+    border-bottom: 1px solid ${dark ? 'rgba(255,255,255,0.06)' : '#f5f5f0'};
+    background: ${dark ? 'rgba(255,255,255,0.02)' : '#fdfcfb'};
   }
-  .progress-step {
-    display: flex; flex-direction: column; align-items: center;
-    flex: 1; position: relative; z-index: 1;
-  }
+  .progress-track { display: flex; align-items: center; position: relative; }
+  .progress-step { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; z-index: 1; }
   .step-circle {
-    width: 32px; height: 32px; border-radius: 50%;
+    width: 34px; height: 34px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 0.8rem; font-weight: 700; border: 2px solid #e5e7eb;
-    background: white; color: #d1d5db; transition: all 0.3s ease;
-    position: relative; z-index: 2;
+    font-size: 0.78rem; font-weight: 700;
+    border: 2px solid ${dark ? '#2d2d2d' : '#e5e7eb'};
+    background: ${dark ? '#1a1a1a' : 'white'};
+    color: ${dark ? '#4b5563' : '#d1d5db'};
+    transition: all 0.3s ease; position: relative; z-index: 2;
   }
-  .step-circle.done { background: linear-gradient(135deg, #FF7A33, #FF5500); border-color: #FF7A33; color: white; box-shadow: 0 4px 10px rgba(255,107,0,0.35); }
-  .step-circle.active { background: white; border-color: #FF7A33; color: #FF7A33; box-shadow: 0 0 0 4px rgba(255,122,51,0.15); }
-  .step-label { font-size: 0.68rem; font-weight: 600; color: #9ca3af; margin-top: 5px; white-space: nowrap; }
+  .step-circle.done { background: linear-gradient(135deg, #FF7A33, #FF5500); border-color: #FF7A33; color: white; box-shadow: 0 4px 12px rgba(255,107,0,0.4); }
+  .step-circle.active { background: ${dark ? '#1a1a1a' : 'white'}; border-color: #FF7A33; color: #FF7A33; box-shadow: 0 0 0 5px rgba(255,122,51,0.15); }
+  .step-label { font-size: 0.65rem; font-weight: 700; color: ${dark ? '#6b7280' : '#9ca3af'}; margin-top: 6px; white-space: nowrap; letter-spacing: 0.3px; }
   .step-label.done, .step-label.active { color: #FF7A33; }
   .step-line {
-    position: absolute; top: 16px; left: calc(50% + 16px);
-    height: 2px; width: calc(100% - 32px);
-    background: #e5e7eb; z-index: 1;
-    transition: background 0.3s ease;
+    position: absolute; top: 17px; left: calc(50% + 17px);
+    height: 2px; width: calc(100% - 34px);
+    background: ${dark ? '#2d2d2d' : '#e5e7eb'}; z-index: 1; transition: background 0.4s ease;
   }
   .step-line.done { background: linear-gradient(90deg, #FF7A33, #FF5500); }
 
-  /* Card body */
-  .card-body { padding: 1.1rem 1.5rem; }
+  /* ── CARD BODY ─────────────────────────────────────────────────────── */
+  .card-body { padding: 1.2rem 1.5rem; }
   .delivery-row {
     display: flex; gap: 1.5rem; flex-wrap: wrap;
-    background: #faf9f6; border-radius: 10px; padding: 0.75rem 1rem;
-    margin-bottom: 1rem; border: 1px solid #f0f0f0;
+    background: ${dark ? 'rgba(255,255,255,0.03)' : '#faf9f6'};
+    border-radius: 12px; padding: 0.8rem 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid ${dark ? 'rgba(255,255,255,0.06)' : '#f0f0f0'};
   }
-  .delivery-item { display: flex; align-items: flex-start; gap: 0.4rem; }
+  .delivery-item { display: flex; align-items: flex-start; gap: 0.45rem; }
   .delivery-icon { font-size: 0.85rem; flex-shrink: 0; margin-top: 1px; }
-  .delivery-label { font-size: 0.72rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
-  .delivery-val { font-size: 0.83rem; color: #374151; font-weight: 600; margin-top: 1px; }
+  .delivery-label { font-size: 0.68rem; color: ${dark ? '#6b7280' : '#9ca3af'}; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .delivery-val { font-size: 0.83rem; color: ${dark ? '#e5e7eb' : '#374151'}; font-weight: 600; margin-top: 2px; }
 
-  /* Items */
-  .items-header { font-size: 0.78rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.6rem; }
+  .items-header { font-size: 0.72rem; font-weight: 800; color: ${dark ? '#6b7280' : '#9ca3af'}; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.6rem; }
   .item-row {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 0.5rem 0; border-bottom: 1px solid #f9f9f7;
+    padding: 0.55rem 0; border-bottom: 1px solid ${dark ? 'rgba(255,255,255,0.04)' : '#f5f5f0'};
   }
   .item-row:last-child { border-bottom: none; }
   .item-left { display: flex; align-items: center; gap: 0.5rem; }
   .item-qty-badge {
-    background: #fff3ec; color: #FF7A33;
-    font-size: 0.72rem; font-weight: 800;
-    width: 22px; height: 22px; border-radius: 6px;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
+    background: ${dark ? 'rgba(255,122,51,0.15)' : '#fff3ec'}; color: #FF7A33;
+    font-size: 0.7rem; font-weight: 800;
+    width: 24px; height: 24px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
-  .item-name { font-size: 0.88rem; font-weight: 500; color: #374151; }
-  .item-price { font-size: 0.88rem; font-weight: 700; color: #1f2937; }
+  .item-name { font-size: 0.88rem; font-weight: 500; color: ${dark ? '#d1d5db' : '#374151'}; }
+  .item-price { font-size: 0.88rem; font-weight: 800; color: ${dark ? '#f9fafb' : '#1f2937'}; }
 
-  /* Total */
+  /* ── CARD FOOTER ───────────────────────────────────────────────────── */
   .card-footer {
-    padding: 0.9rem 1.5rem;
-    background: #fdf9f5;
-    border-top: 1px solid #f5f5f0;
+    padding: 0.95rem 1.5rem;
+    background: ${dark ? 'rgba(255,122,51,0.06)' : '#fdf9f5'};
+    border-top: 1px solid ${dark ? 'rgba(255,122,51,0.1)' : '#f5f5f0'};
     display: flex; justify-content: space-between; align-items: center;
   }
-  .total-label { font-size: 0.85rem; color: #9ca3af; font-weight: 500; }
-  .total-amount { font-family: 'Playfair Display', serif; font-size: 1.35rem; font-weight: 800; color: #FF7A33; }
+  .total-label { font-size: 0.82rem; color: ${dark ? '#9ca3af' : '#9ca3af'}; font-weight: 500; }
+  .total-amount { font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 800; color: #FF7A33; }
 
-  /* ── EMPTY STATE ── */
+  /* ── PAYMENT BADGE ─────────────────────────────────────────────────── */
+  .pay-badge {
+    font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 6px;
+    letter-spacing: 0.3px; text-transform: uppercase;
+  }
+  .pay-upi { background: ${dark ? 'rgba(99,102,241,0.15)' : '#eef2ff'}; color: #6366f1; }
+  .pay-cod { background: ${dark ? 'rgba(16,185,129,0.15)' : '#ecfdf5'}; color: #10b981; }
+
+  /* ── EMPTY STATE ───────────────────────────────────────────────────── */
   .empty-wrap {
     text-align: center; padding: 5rem 2rem;
-    background: white; border-radius: 20px;
-    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
-    border: 1px solid rgba(255,122,51,0.08);
+    background: ${dark ? '#1a1a1a' : 'white'}; border-radius: 24px;
+    box-shadow: ${dark ? '0 4px 24px rgba(0,0,0,0.3)' : '0 2px 16px rgba(0,0,0,0.06)'};
+    border: 1px solid ${dark ? 'rgba(255,255,255,0.06)' : 'rgba(255,122,51,0.08)'};
   }
   .empty-bowl {
-    width: 80px; height: 80px;
+    width: 88px; height: 88px;
     background: linear-gradient(145deg, #FF7A33, #FF5500);
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    margin: 0 auto 1.25rem;
-    box-shadow: 0 8px 24px rgba(255,107,0,0.3);
+    margin: 0 auto 1.5rem;
+    box-shadow: 0 12px 32px rgba(255,107,0,0.35);
   }
-  .empty-title { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700; color: #2d1f0e; margin-bottom: 0.5rem; }
-  .empty-sub { font-size: 0.9rem; color: #9ca3af; margin-bottom: 1.5rem; }
+  .empty-title { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 800; color: ${dark ? '#f9fafb' : '#2d1f0e'}; margin-bottom: 0.6rem; }
+  .empty-sub { font-size: 0.9rem; color: ${dark ? '#6b7280' : '#9ca3af'}; margin-bottom: 1.75rem; }
   .order-now-btn {
-    display: inline-flex; align-items: center; gap: 0.4rem;
-    padding: 0.8rem 1.75rem;
+    display: inline-flex; align-items: center; gap: 0.45rem;
+    padding: 0.85rem 2rem;
     background: linear-gradient(135deg, #FF7A33, #FF5500);
     color: white; border: none; border-radius: 12px;
     font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 700;
-    cursor: pointer;
-    box-shadow: 0 4px 16px rgba(255,107,0,0.35);
+    cursor: pointer; box-shadow: 0 6px 20px rgba(255,107,0,0.4);
     transition: transform 0.15s, box-shadow 0.15s;
   }
-  .order-now-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(255,107,0,0.4); }
+  .order-now-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(255,107,0,0.5); }
 
-  /* ── LOADING ── */
+  /* ── LOADING ───────────────────────────────────────────────────────── */
   .loading-root {
     min-height: 100vh; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 1rem;
-    background: #faf9f6; font-family: 'DM Sans', sans-serif;
+    align-items: center; justify-content: center; gap: 1.25rem;
+    background: ${dark ? '#0f0f0f' : '#faf9f6'};
+    font-family: 'DM Sans', sans-serif;
   }
-  .loading-text { font-size: 0.9rem; color: #9ca3af; font-weight: 500; }
+  .loading-text { font-size: 0.9rem; color: ${dark ? '#6b7280' : '#9ca3af'}; font-weight: 600; }
 
+  /* ── ANIMATIONS ────────────────────────────────────────────────────── */
   @keyframes spin { to { transform: rotate(360deg); } }
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(14px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes pulseBadge {
-    0%, 100% { opacity: 1; } 50% { opacity: 0.7; }
-  }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pulseBadge { 0%, 100% { opacity: 1; } 50% { opacity: 0.65; } }
   @keyframes steamRise {
     0%, 100% { transform: translateY(0) scaleX(1); opacity: 0.9; }
     50% { transform: translateY(-3px) scaleX(0.8); opacity: 0.5; }
@@ -266,9 +304,6 @@ const styles = `
   .steam-2 { animation: steamRise 1.8s ease-in-out 0.35s infinite; }
   .steam-3 { animation: steamRise 1.8s ease-in-out 0.7s infinite; }
 `;
-
-const STEPS = ['Pending', 'Preparing', 'Ready', 'Delivered'];
-const STEP_ICONS = { Pending: '🕐', Preparing: '👨‍🍳', Ready: '✅', Delivered: '🎉' };
 
 const formatTimestamp = (ts) => {
   if (!ts) return null;
@@ -284,21 +319,19 @@ function ProgressTracker({ status }) {
     <div className="progress-wrap">
       <div className="progress-track">
         {STEPS.map((step, i) => {
-          const isDone = i < currentIdx;
+          const isDone   = i < currentIdx;
           const isActive = i === currentIdx;
           return (
             <div key={step} className="progress-step">
               {i < STEPS.length - 1 && (
-                <div className={`step-line${isDone || isActive ? ' done' : ''}`} />
+                <div className={`step-line${isDone ? ' done' : ''}`} />
               )}
               <div className={`step-circle${isDone ? ' done' : isActive ? ' active' : ''}`}>
                 {isDone ? (
                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
                   </svg>
-                ) : (
-                  <span>{STEP_ICONS[step]}</span>
-                )}
+                ) : <span>{STEP_ICONS[step]}</span>}
               </div>
               <div className={`step-label${isDone || isActive ? ' done' : ''}`}>{step}</div>
             </div>
@@ -310,11 +343,20 @@ function ProgressTracker({ status }) {
 }
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState([]);
+  const [orders, setOrders]   = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('All');
-  const [user, setUser] = useState(null);
+  const [filter, setFilter]   = useState('All');
+  const [user, setUser]       = useState(null);
+  const [dark, setDark]       = useState(() => getLS('darkMode', false));
   const navigate = useNavigate();
+
+  // Sync dark mode with MenuPage changes (in case user switches tabs)
+  useEffect(() => {
+    const sync = () => setDark(getLS('darkMode', false));
+    window.addEventListener('storage', sync);
+    const interval = setInterval(sync, 1000);
+    return () => { window.removeEventListener('storage', sync); clearInterval(interval); };
+  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
@@ -323,46 +365,50 @@ export default function OrdersPage() {
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
-    const fetch = async () => {
+    const fetchOrders = async () => {
       try {
-        const res = await axios.get(`https://annapurna-smart-canteen1.onrender.com/api/orders/user/${user.uid}`);
+        const res = await axios.get(`${API}/api/orders/user/${user.uid}`);
         setOrders(res.data);
       } catch (e) {
         if (e.response?.status !== 404) console.error(e);
       } finally { setLoading(false); }
     };
-    fetch();
+    fetchOrders();
   }, [user]);
 
   const FILTERS = ['All', ...STEPS];
-  const filtered = filter === 'All' ? orders : orders.filter(o => o.status === filter);
-  const activeCount = orders.filter(o => o.status !== 'Delivered').length;
+  const filtered     = filter === 'All' ? orders : orders.filter(o => o.status === filter);
+  const activeCount  = orders.filter(o => o.status !== 'Delivered').length;
 
   const FILTER_COLORS = {
-    All: { bg: '#f5f5f0', text: '#374151', dot: '#9ca3af', activeBg: '#2d1f0e', activeText: 'white' },
-    Pending:   { bg: '#fef3c7', text: '#d97706', dot: '#f59e0b' },
-    Preparing: { bg: '#dbeafe', text: '#2563eb', dot: '#3b82f6' },
-    Ready:     { bg: '#dcfce7', text: '#16a34a', dot: '#22c55e' },
-    Delivered: { bg: '#f3f4f6', text: '#6b7280', dot: '#9ca3af' },
+    All:       { dot: dark ? '#6b7280' : '#9ca3af' },
+    Pending:   { dot: '#f59e0b' },
+    Preparing: { dot: '#3b82f6' },
+    Ready:     { dot: '#FF7A33' },
+    Delivered: { dot: '#9ca3af' },
   };
+
+  const BowlSVG = (
+    <svg width="44" height="44" viewBox="0 0 52 52" fill="none">
+      <path className="steam-1" d="M18 14 Q17 11 18 8" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" fill="none"/>
+      <path className="steam-2" d="M26 13 Q25 10 26 7" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" fill="none"/>
+      <path className="steam-3" d="M34 14 Q33 11 34 8" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" fill="none"/>
+      <path d="M10 29 Q10 42 26 42 Q42 42 42 29 Z" fill="white"/>
+      <ellipse cx="26" cy="29" rx="16" ry="3.5" fill="white"/>
+      <ellipse cx="26" cy="29" rx="14" ry="2.5" fill="rgba(255,107,0,0.18)"/>
+      <circle cx="26" cy="34" r="2.5" fill="rgba(255,107,0,0.35)"/>
+      <ellipse cx="26" cy="42.5" rx="18" ry="2.5" fill="rgba(255,255,255,0.4)"/>
+    </svg>
+  );
 
   if (loading) return (
     <>
-      <style>{styles}</style>
+      <style>{makeStyles(dark)}</style>
       <div className="loading-root">
-        <div style={{ position: 'relative', width: 80, height: 80 }}>
-          <div style={{ position: 'absolute', inset: -4, borderRadius: '50%', border: '2px dashed rgba(255,122,51,0.3)', animation: 'spin 20s linear infinite' }} />
-          <div style={{ width: 80, height: 80, background: 'linear-gradient(145deg,#FF7A33,#FF5500)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(255,107,0,0.35)' }}>
-            <svg width="44" height="44" viewBox="0 0 52 52" fill="none">
-              <path className="steam-1" d="M18 14 Q17 11 18 8" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" fill="none"/>
-              <path className="steam-2" d="M26 13 Q25 10 26 7" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" fill="none"/>
-              <path className="steam-3" d="M34 14 Q33 11 34 8" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" fill="none"/>
-              <path d="M10 29 Q10 42 26 42 Q42 42 42 29 Z" fill="white"/>
-              <ellipse cx="26" cy="29" rx="16" ry="3.5" fill="white"/>
-              <ellipse cx="26" cy="29" rx="14" ry="2.5" fill="rgba(255,107,0,0.18)"/>
-              <circle cx="26" cy="34" r="2.5" fill="rgba(255,107,0,0.35)"/>
-              <ellipse cx="26" cy="42.5" rx="18" ry="2.5" fill="rgba(255,255,255,0.4)"/>
-            </svg>
+        <div style={{ position:'relative', width:80, height:80 }}>
+          <div style={{ position:'absolute', inset:-4, borderRadius:'50%', border:'2px dashed rgba(255,122,51,0.35)', animation:'spin 20s linear infinite' }} />
+          <div style={{ width:80, height:80, background:'linear-gradient(145deg,#FF7A33,#FF5500)', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 8px 28px rgba(255,107,0,0.4)' }}>
+            {BowlSVG}
           </div>
         </div>
         <p className="loading-text">Loading your orders…</p>
@@ -372,14 +418,14 @@ export default function OrdersPage() {
 
   return (
     <>
-      <style>{styles}</style>
+      <style>{makeStyles(dark)}</style>
 
       {/* ── HEADER ── */}
       <header className="ord-header">
         <div className="ord-header-inner">
           <div className="header-logo">
             <div className="header-logo-icon">
-              <svg width="24" height="24" viewBox="0 0 52 52" fill="none">
+              <svg width="26" height="26" viewBox="0 0 52 52" fill="none">
                 <path d="M10 29 Q10 42 26 42 Q42 42 42 29 Z" fill="white"/>
                 <ellipse cx="26" cy="29" rx="16" ry="3.5" fill="white"/>
                 <ellipse cx="26" cy="29" rx="14" ry="2.5" fill="rgba(255,107,0,0.3)"/>
@@ -404,10 +450,12 @@ export default function OrdersPage() {
       {/* ── HERO ── */}
       <section className="orders-hero">
         <div className="orders-hero-inner">
-          <div className="hero-left">
+          <div>
             <div className="hero-eyebrow">✦ Order Tracking</div>
             <h1 className="hero-title">My <span>Orders</span></h1>
-            <p className="hero-sub">{activeCount > 0 ? `${activeCount} active order${activeCount > 1 ? 's' : ''} in progress` : 'All your food orders in one place'}</p>
+            <p className="hero-sub">
+              {activeCount > 0 ? `${activeCount} active order${activeCount > 1 ? 's' : ''} in progress` : 'All your food orders in one place'}
+            </p>
           </div>
           {orders.length > 0 && (
             <div className="hero-stats">
@@ -416,8 +464,8 @@ export default function OrdersPage() {
                 <div className="hero-stat-lbl">Total</div>
               </div>
               <div className="hero-stat">
-                <div className="hero-stat-val">{orders.filter(o => o.status === 'Pending').length}</div>
-                <div className="hero-stat-lbl">Pending</div>
+                <div className="hero-stat-val">{activeCount}</div>
+                <div className="hero-stat-lbl">Active</div>
               </div>
               <div className="hero-stat">
                 <div className="hero-stat-val">₹{orders.reduce((s, o) => s + o.total, 0).toFixed(0)}</div>
@@ -430,25 +478,13 @@ export default function OrdersPage() {
 
       {/* ── MAIN ── */}
       <main className="ord-main">
-
         {orders.length === 0 ? (
           <div className="empty-wrap">
-            <div className="empty-bowl">
-              <svg width="44" height="44" viewBox="0 0 52 52" fill="none">
-                <path d="M10 29 Q10 42 26 42 Q42 42 42 29 Z" fill="white"/>
-                <ellipse cx="26" cy="29" rx="16" ry="3.5" fill="white"/>
-                <ellipse cx="26" cy="29" rx="14" ry="2.5" fill="rgba(255,107,0,0.3)"/>
-                <circle cx="26" cy="34" r="2.5" fill="rgba(255,107,0,0.5)"/>
-                <ellipse cx="26" cy="42.5" rx="18" ry="2.5" fill="rgba(255,255,255,0.4)"/>
-              </svg>
-            </div>
+            <div className="empty-bowl">{BowlSVG}</div>
             <div className="empty-title">No orders yet</div>
             <div className="empty-sub">Place your first order and track it live right here</div>
             <button className="order-now-btn" onClick={() => navigate('/menu')}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"/>
-              </svg>
-              Browse the Menu
+              🍽️ Browse the Menu
             </button>
           </div>
         ) : (
@@ -465,14 +501,13 @@ export default function OrdersPage() {
                     key={f}
                     className={`legend-pill${isActive ? ' active' : ''}`}
                     style={{
-                      background: isActive ? (f === 'All' ? '#2d1f0e' : c.bg) : 'white',
-                      color: isActive ? (f === 'All' ? 'white' : c.text) : '#6b7280',
-                      borderColor: isActive ? c.dot : '#e5e7eb',
+                      color: isActive ? (f === 'All' ? '#FF7A33' : c.dot) : undefined,
+                      borderColor: isActive ? c.dot : 'transparent',
                     }}
                     onClick={() => setFilter(f)}
                   >
-                    {f !== 'All' && <span className="legend-dot" style={{ background: c.dot }} />}
-                    {f} {count > 0 && <span style={{ fontWeight: 800 }}>({count})</span>}
+                    <span className="legend-dot" style={{ background: c.dot }} />
+                    {f} <span style={{ fontWeight:800 }}>({count})</span>
                   </button>
                 );
               })}
@@ -482,11 +517,8 @@ export default function OrdersPage() {
             {filtered.map((order, idx) => {
               const ts = formatTimestamp(order.timestamp);
               return (
-                <div key={order.id} className="order-card" style={{ animationDelay: `${idx * 0.06}s` }}>
-                  {/* Status strip */}
+                <div key={order.id} className="order-card" style={{ animationDelay:`${idx * 0.06}s` }}>
                   <div className={`card-strip strip-${order.status}`} />
-
-                  {/* Top */}
                   <div className="card-top">
                     <div>
                       <div className="card-order-id">Order #{order.id.slice(-6).toUpperCase()}</div>
@@ -499,18 +531,22 @@ export default function OrdersPage() {
                         </div>
                       )}
                     </div>
-                    <span className={`status-badge badge-${order.status}`}>
-                      <span className={`status-dot dot-${order.status}`} />
-                      {order.status}
-                    </span>
+                    <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'.4rem' }}>
+                      <span className={`status-badge badge-${order.status}`}>
+                        <span className={`status-dot dot-${order.status}`} />
+                        {order.status}
+                      </span>
+                      {order.paymentMethod && (
+                        <span className={`pay-badge ${order.paymentMethod === 'upi' ? 'pay-upi' : 'pay-cod'}`}>
+                          {order.paymentMethod === 'upi' ? '💳 UPI' : '💵 COD'}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Progress tracker */}
                   <ProgressTracker status={order.status} />
 
-                  {/* Body */}
                   <div className="card-body">
-                    {/* Delivery info */}
                     {(order.deliveryName || order.deliveryLocation) && (
                       <div className="delivery-row">
                         {order.deliveryName && (
@@ -533,8 +569,6 @@ export default function OrdersPage() {
                         )}
                       </div>
                     )}
-
-                    {/* Items */}
                     <div className="items-header">Items ordered</div>
                     {order.items.map((item, i) => (
                       <div key={i} className="item-row">
@@ -547,7 +581,6 @@ export default function OrdersPage() {
                     ))}
                   </div>
 
-                  {/* Footer */}
                   <div className="card-footer">
                     <span className="total-label">Order Total</span>
                     <span className="total-amount">₹{order.total.toFixed(2)}</span>
