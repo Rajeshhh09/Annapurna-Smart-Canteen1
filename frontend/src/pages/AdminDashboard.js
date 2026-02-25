@@ -417,6 +417,80 @@ const makeStyles = (dark) => `
   @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
   @keyframes scaleIn { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }
   @keyframes spin    { to { transform: rotate(360deg); } }
+
+  /* ═══════════════════════════════════════════
+     TABLET — max-width 1024px
+  ═══════════════════════════════════════════ */
+  @media (max-width: 1024px) {
+    .menu-layout { grid-template-columns: 1fr; }
+    .orders-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  }
+
+  /* ═══════════════════════════════════════════
+     MOBILE — max-width 768px
+  ═══════════════════════════════════════════ */
+  @media (max-width: 768px) {
+    /* Header */
+    .adm-hdr-in { padding: 0.65rem 1rem; }
+    .logo-sub { display: none; }
+    .admin-badge { font-size: 0.6rem; padding: 0.18rem 0.5rem; }
+    .back-btn { padding: 0.45rem 0.75rem; font-size: 0.78rem; }
+
+    /* Stats bar */
+    .stats-bar { padding: 1.25rem 1rem; }
+    .stats-in { grid-template-columns: 1fr 1fr; gap: 0.65rem; }
+    .stat-val { font-size: 1.45rem; }
+    .stat-lbl { font-size: 0.62rem; }
+    .stat-sub { font-size: 0.65rem; }
+    .stat-card { padding: 0.75rem 0.85rem; border-radius: 12px; }
+
+    /* Tabs */
+    .tabs-wrap { padding: 1rem 1rem 0; gap: 0.25rem; }
+    .tab-btn { padding: 0.65rem 1rem; font-size: 0.82rem; }
+
+    /* Main */
+    .adm-main { padding: 1.25rem 1rem 4rem; }
+
+    /* Menu layout */
+    .menu-layout { grid-template-columns: 1fr; gap: 1.25rem; }
+
+    /* Menu list */
+    .menu-scroll { max-height: 450px; }
+    .item-row { padding: 0.75rem 1rem; gap: 0.65rem; }
+    .item-thumb { width: 46px; height: 46px; border-radius: 10px; }
+    .item-name { font-size: 0.83rem; }
+    .item-acts { gap: 0.25rem; flex-wrap: wrap; }
+    .oos-toggle { padding: 0.25rem 0.5rem; font-size: 0.65rem; }
+    .icon-btn { width: 28px; height: 28px; }
+
+    /* Orders */
+    .orders-grid { grid-template-columns: 1fr; }
+    .section-hdr { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+    .refresh-btn { width: 100%; justify-content: center; }
+    .ocard { border-radius: 15px; }
+    .ocard-top { padding: 0.85rem 1rem 0.7rem; }
+    .ocard-body { padding: 0.8rem 1rem; }
+    .status-btns { padding: 0.75rem 1rem; gap: 0.3rem; }
+    .sbtn { font-size: 0.68rem; padding: 0.42rem 0.4rem; }
+
+    /* Modal */
+    .modal-bg { padding: 0; align-items: flex-end; }
+    .modal-box {
+      width: 100% !important; max-width: 100% !important;
+      border-radius: 22px 22px 0 0 !important;
+      max-height: 92vh !important;
+    }
+
+    /* Panel body */
+    .panel-body { padding: 1.1rem; }
+    .frow { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 400px) {
+    .stats-in { grid-template-columns: 1fr 1fr; }
+    .tab-btn { padding: 0.6rem 0.75rem; font-size: 0.78rem; }
+    .tab-btn .tab-bdg { display: none; }
+  }
 `;
 
 // ── UploadZone ────────────────────────────────────────────────────────────

@@ -303,6 +303,63 @@ const makeStyles = (dark) => `
   .steam-1 { animation: steamRise 1.8s ease-in-out infinite; }
   .steam-2 { animation: steamRise 1.8s ease-in-out 0.35s infinite; }
   .steam-3 { animation: steamRise 1.8s ease-in-out 0.7s infinite; }
+
+  /* ═══════════════════════════════════════════
+     MOBILE — max-width 768px
+  ═══════════════════════════════════════════ */
+  @media (max-width: 768px) {
+    /* Header */
+    .ord-header-inner { padding: 0.65rem 1rem; }
+    .header-brand { font-size: 1rem; }
+    .header-sub { display: none; }
+    .back-btn { padding: 0.45rem 0.75rem; font-size: 0.78rem; }
+    .back-btn span { display: none; }
+
+    /* Hero */
+    .orders-hero { padding: 1.75rem 1rem; }
+    .orders-hero-inner { flex-direction: column; gap: 1.25rem; }
+    .hero-title { font-size: 1.85rem; }
+    .hero-sub { font-size: 0.82rem; }
+    .hero-stats { width: 100%; justify-content: space-between; }
+    .hero-stat { flex: 1; min-width: 0; padding: 0.75rem 0.5rem; }
+    .hero-stat-val { font-size: 1.35rem; }
+    .hero-stat-lbl { font-size: 0.6rem; }
+
+    /* Main */
+    .ord-main { padding: 1.25rem 1rem 4rem; }
+
+    /* Filter pills — horizontal scroll */
+    .status-legend { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0.25rem; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .status-legend::-webkit-scrollbar { display: none; }
+    .legend-pill { flex-shrink: 0; }
+
+    /* Order cards */
+    .order-card { border-radius: 15px; margin-bottom: 1rem; }
+    .card-top { padding: 1rem 1.1rem 0.8rem; }
+    .card-order-id { font-size: 1rem; }
+    .card-body { padding: 1rem 1.1rem; }
+    .card-footer { padding: 0.8rem 1.1rem; }
+
+    /* Progress tracker — smaller on mobile */
+    .progress-wrap { padding: 0.9rem 0.75rem; overflow-x: auto; }
+    .step-circle { width: 28px; height: 28px; font-size: 0.7rem; }
+    .step-label { font-size: 0.58rem; }
+    .step-line { top: 14px; }
+
+    /* Delivery row */
+    .delivery-row { flex-direction: column; gap: 0.6rem; padding: 0.65rem 0.85rem; }
+
+    /* Empty state */
+    .empty-wrap { padding: 3.5rem 1.5rem; border-radius: 18px; }
+    .empty-title { font-size: 1.35rem; }
+    .empty-bowl { width: 72px; height: 72px; }
+  }
+
+  @media (max-width: 400px) {
+    .hero-title { font-size: 1.55rem; }
+    .step-label { display: none; }
+    .step-circle { width: 26px; height: 26px; }
+  }
 `;
 
 const formatTimestamp = (ts) => {

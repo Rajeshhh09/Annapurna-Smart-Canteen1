@@ -325,6 +325,22 @@ const styles = `
   .steam-1 { animation: steamRise 1.8s ease-in-out infinite; }
   .steam-2 { animation: steamRise 1.8s ease-in-out 0.35s infinite; }
   .steam-3 { animation: steamRise 1.8s ease-in-out 0.7s infinite; }
+
+  @media (max-width: 480px) {
+    .register-root { padding: 1.25rem 0.9rem; justify-content: flex-start; padding-top: 2rem; }
+    .register-card { padding: 1.5rem 1.25rem 1.75rem; border-radius: 18px; }
+    .brand-name { font-size: 1.65rem; }
+    .register-title { font-size: 1.45rem; }
+    .logo-wrap { width: 72px; height: 72px; }
+    .logo-circle { width: 72px; height: 72px; }
+    .brand-block { margin-bottom: 1.5rem; }
+    .fields-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 360px) {
+    .register-card { padding: 1.25rem 1rem 1.5rem; }
+    .field-input { font-size: 0.9rem; }
+  }
 `;
 
 const EyeOpen = () => (
