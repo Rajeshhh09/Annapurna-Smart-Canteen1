@@ -255,7 +255,7 @@ app.post('/api/orders', async (req, res) => {
     const newOrder = {
       userId, items,
       total:            parseFloat(total),
-      status:           status           || 'Pending',
+      status:           normStatus(status),   // always TitleCase — e.g. 'Pending'
       paymentMethod:    paymentMethod    || 'cod',
       paymentStatus:    paymentStatus    || 'pending',
       razorpayLinkId:   razorpayLinkId   || null,
@@ -272,13 +272,53 @@ app.post('/api/orders', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── Helper: Firestore Timestamp / serialised object → milliseconds ────────
+function tsToMs(ts) {
+  if (!ts) return 0;
+  if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+  if (ts._seconds  !== undefined)      return ts._seconds  * 1000;
+  if (ts.seconds   !== undefined)      return ts.seconds   * 1000;
+  return new Date(ts).getTime() || 0;
+}
+
+// ── Normalise a raw status string → TitleCase ─────────────────────────────
+// 'confirmed' was used by old UPI orders — maps to 'Pending' so admin can see them
+function normStatus(s) {
+  const map = {
+    pending:   'Pending',
+    confirmed: 'Pending',   // ← old UPI orders were saved as 'confirmed' — treat as Pending
+    preparing: 'Preparing',
+    ready:     'Ready',
+    delivered: 'Delivered',
+  };
+  return map[(s || 'pending').toLowerCase()] || (s || 'Pending');
+}
+
+// ── GET /api/orders ────────────────────────────────────────────────────────
+// CRITICAL FIX: removed .orderBy('timestamp','desc')
+// Firestore silently EXCLUDES any document missing the ordered field.
+// Old / test orders without a timestamp field disappeared entirely.
+// Fetch everything, normalise in JS, sort in JS — bulletproof.
 app.get('/api/orders', async (req, res) => {
   try {
-    const snapshot = await db.collection('orders').orderBy('timestamp', 'desc').get();
+    const snapshot = await db.collection('orders').get();   // ← NO orderBy
     const orders = [];
-    snapshot.forEach(doc => orders.push({ id: doc.id, ...doc.data() }));
+    snapshot.forEach(doc => {
+      const d = doc.data();
+      orders.push({
+        id: doc.id,
+        ...d,
+        status:    normStatus(d.status),
+        timestamp: tsToMs(d.timestamp),
+      });
+    });
+    orders.sort((a, b) => b.timestamp - a.timestamp);
+    console.log(`GET /api/orders → ${orders.length} orders`);
     res.json(orders);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('GET /api/orders error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ⚠️ Must be before /api/orders/:id
@@ -286,15 +326,24 @@ app.get('/api/orders/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     if (!userId) return res.status(400).json({ error: 'userId is required' });
+    // No orderBy — same fix as GET /api/orders above
     const snapshot = await db.collection('orders')
       .where('userId', '==', userId)
-      .orderBy('timestamp', 'desc')
       .get();
     const orders = [];
-    snapshot.forEach(doc => orders.push({ id: doc.id, ...doc.data() }));
+    snapshot.forEach(doc => {
+      const d = doc.data();
+      orders.push({
+        id: doc.id,
+        ...d,
+        status:    normStatus(d.status),
+        timestamp: tsToMs(d.timestamp),
+      });
+    });
+    orders.sort((a, b) => b.timestamp - a.timestamp);
     res.json(orders);
   } catch (err) {
-    if (err.code === 9) return res.status(500).json({ error: 'Missing Firestore index.' });
+    console.error('GET /api/orders/user error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -302,11 +351,12 @@ app.get('/api/orders/user/:userId', async (req, res) => {
 app.put('/api/orders/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const status = normStatus(req.body.status);   // always write TitleCase
     const docRef = db.collection('orders').doc(id);
     const doc    = await docRef.get();
     if (!doc.exists) return res.status(404).json({ error: 'Order not found' });
     await docRef.update({ status });
+    console.log(`Order ${id} → ${status}`);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

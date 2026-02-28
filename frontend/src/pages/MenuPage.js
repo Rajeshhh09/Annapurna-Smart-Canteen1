@@ -1166,7 +1166,9 @@ export default function MenuPage() {
         pointsEarned: earned, paymentMethod,
         razorpayLinkId: linkData?.qrId || null,
         paymentStatus:  paymentMethod === 'upi' ? 'paid' : 'cod',
-        status:         paymentMethod === 'upi' ? 'confirmed' : 'pending',
+        // 'Pending' = kitchen queue. paymentStatus above already tracks payment.
+        // Using 'confirmed' here was the bug — admin only shows Pending/Preparing/Ready
+        status: 'Pending',
       });
       const orderId = orderRes.data.id || orderRes.data.orderId || `ORD${Date.now()}`;
       if (earned > 0) {

@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 
 const API = 'https://annapurna-smart-canteen1.onrender.com';
 
-const getLS  = (k, def) => { try { const v = localStorage.getItem(k); return v !== null ? JSON.parse(v) : def; } catch { return def; } };
+const getLS  = (k, def) => { try { const v = localStorage.getItem(k); return v !== null ? JSON.parse(v) : def; } catch (err) { return def; } };
+const toNum  = (v)      => { const n = parseFloat(v); return isNaN(n) || n < 0 ? 0 : n; };
 const toStr  = (v)      => (v && Number(v) > 0) ? String(v) : '';
 
 const STATUS_ORDER = ['Pending', 'Preparing', 'Ready', 'Delivered'];
@@ -419,6 +420,48 @@ export default function AdminDashboard() {
     setAddPopularity(''); setAddFreshness('');
   };
 
+  // ── Normalise a raw status string to TitleCase ────────────────────────────
+  // Handles: null → 'Pending', 'pending' → 'Pending', 'PREPARING' → 'Preparing'
+  const normaliseStatus = (s) => {
+    if (!s) return 'Pending';
+    const map = {
+      pending:   'Pending',
+      preparing: 'Preparing',
+      ready:     'Ready',
+      delivered: 'Delivered',
+    };
+    return map[s.toLowerCase()] || (s.charAt(0).toUpperCase() + s.slice(1));
+  };
+
+  // ── Fetch functions — MUST be defined before the useEffects that call them ─
+  const fetchMenu = async () => {
+    try {
+      const r = await axios.get(`${API}/api/menu`);
+      setMenu(Array.isArray(r.data) ? r.data : []);
+    } catch (e) {
+      console.error('[Admin] fetchMenu error:', e.message);
+    }
+  };
+
+  const fetchOrders = async () => {
+    try {
+      const r = await axios.get(`${API}/api/orders`);
+      const raw = Array.isArray(r.data) ? r.data : [];
+      console.log(`[Admin] fetchOrders: ${raw.length} orders received`);
+      // Normalise status to TitleCase — handles any casing from client or DB
+      const normalised = raw.map(o => ({
+        ...o,
+        status: normaliseStatus(o.status),
+      }));
+      // Debug: log distinct statuses to console
+      const statuses = [...new Set(normalised.map(o => o.status))];
+      console.log('[Admin] Distinct statuses in orders:', statuses);
+      setOrders(normalised);
+    } catch (e) {
+      console.error('[Admin] fetchOrders error:', e.response?.data || e.message);
+    }
+  };
+
   // ── Dark mode sync ───────────────────────────────────────────────────────
   useEffect(() => {
     const sync = () => setDark(getLS('darkMode', false));
@@ -427,10 +470,17 @@ export default function AdminDashboard() {
     return () => { window.removeEventListener('storage', sync); clearInterval(t); };
   }, []);
 
-  useEffect(() => { fetchMenu(); fetchOrders(); }, []);
+  // ── Initial load ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    fetchMenu();
+    fetchOrders();
+  }, []); // eslint-disable-next-line
 
-  const fetchMenu   = async () => { try { const r = await axios.get(`${API}/api/menu`);   setMenu(r.data);   } catch (e) { console.error(e); } };
-  const fetchOrders = async () => { try { const r = await axios.get(`${API}/api/orders`); setOrders(r.data); } catch (e) { console.error(e); } };
+  // ── Auto-refresh orders every 12 seconds ─────────────────────────────────
+  useEffect(() => {
+    const t = setInterval(fetchOrders, 12000);
+    return () => clearInterval(t);
+  }, []); // eslint-disable-next-line
 
   // ── addMenuItem — builds DNA from flat state variables ───────────────────
   const addMenuItem = async () => {
@@ -523,8 +573,11 @@ export default function AdminDashboard() {
     } catch (e) { alert('Failed to update order.'); }
   };
 
-  const pending  = orders.filter(o => o.status === 'Pending').length;
-  const totalRev = orders.reduce((s, o) => s + (o.total || 0), 0);
+  const ACTIVE_STATUSES = ['Pending', 'Preparing', 'Ready'];
+  // ── activeOrders: only orders that should appear in the Live Orders board ─
+  const activeOrders = orders.filter(o => ACTIVE_STATUSES.includes(o.status));
+  const pending      = activeOrders.filter(o => o.status === 'Pending').length;
+  const totalRev     = activeOrders.reduce((s, o) => s + (o.total || 0), 0);
   const oosCount = menu.filter(m => m.inStock === false).length;
   const STRIP = { Pending:'#f59e0b', Preparing:'#3b82f6', Ready:'#FF7A33', Delivered:'#9ca3af' };
 
@@ -575,9 +628,9 @@ export default function AdminDashboard() {
       <section className="stats-bar">
         <div className="stats-in">
           <div className="stat-card"><div className="stat-lbl">Menu Items</div><div className="stat-val">{menu.length}</div><div className="stat-sub">{oosCount > 0 ? `${oosCount} out of stock` : 'All available'}</div></div>
-          <div className="stat-card"><div className="stat-lbl">Live Orders</div><div className="stat-val">{orders.length}</div><div className="stat-sub">{pending} pending</div></div>
-          <div className="stat-card"><div className="stat-lbl">Preparing</div><div className="stat-val">{orders.filter(o => o.status === 'Preparing').length}</div><div className="stat-sub">In the kitchen</div></div>
-          <div className="stat-card"><div className="stat-lbl">Ready</div><div className="stat-val" style={{ color: orders.filter(o=>o.status==='Ready').length>0 ? '#FFAA77' : 'white' }}>{orders.filter(o => o.status === 'Ready').length}</div><div className="stat-sub">Awaiting pickup</div></div>
+          <div className="stat-card"><div className="stat-lbl">Live Orders</div><div className="stat-val">{activeOrders.length}</div><div className="stat-sub">{pending} pending</div></div>
+          <div className="stat-card"><div className="stat-lbl">Preparing</div><div className="stat-val">{activeOrders.filter(o => o.status === 'Preparing').length}</div><div className="stat-sub">In the kitchen</div></div>
+          <div className="stat-card"><div className="stat-lbl">Ready</div><div className="stat-val" style={{ color: activeOrders.filter(o=>o.status==='Ready').length>0 ? '#FFAA77' : 'white' }}>{activeOrders.filter(o => o.status === 'Ready').length}</div><div className="stat-sub">Awaiting pickup</div></div>
           <div className="stat-card"><div className="stat-lbl">Revenue</div><div className="stat-val">₹{totalRev.toFixed(0)}</div><div className="stat-sub">Active orders</div></div>
         </div>
       </section>
@@ -589,7 +642,7 @@ export default function AdminDashboard() {
             🍽️ Menu Management <span className="tab-bdg bdg-gray">{menu.length}</span>
           </button>
           <button className={`tab-btn${activeTab==='orders'?' active':''}`} onClick={() => setActiveTab('orders')}>
-            📦 Live Orders <span className={`tab-bdg ${pending>0?'bdg-amber':'bdg-gray'}`}>{pending>0?pending:orders.length}</span>
+            📦 Live Orders <span className={`tab-bdg ${activeOrders.length>0?'bdg-amber':'bdg-gray'}`}>{activeOrders.length}</span>
           </button>
         </div>
       </div>
@@ -761,7 +814,7 @@ export default function AdminDashboard() {
             <div className="section-hdr">
               <div>
                 <div className="section-title">Live Orders</div>
-                <div className="section-sub">{orders.length} active · Auto-refresh recommended</div>
+                <div className="section-sub">{activeOrders.length} active · auto-refreshes every 15s</div>
               </div>
               <button className="refresh-btn" onClick={fetchOrders}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -770,15 +823,15 @@ export default function AdminDashboard() {
                 Refresh
               </button>
             </div>
-            {orders.length === 0 ? (
+            {activeOrders.length === 0 ? (
               <div className="empty-st">
                 <div className="empty-icon">📭</div>
                 <div className="empty-title">No active orders</div>
-                <p style={{ fontSize:'.82rem', marginTop:'.25rem' }}>New orders will appear here</p>
+                <p style={{ fontSize:'.82rem', marginTop:'.25rem' }}>New orders will appear here automatically</p>
               </div>
             ) : (
               ['Pending','Preparing','Ready'].map(status => {
-                const group = orders.filter(o => o.status === status);
+                const group = activeOrders.filter(o => o.status === status);
                 if (!group.length) return null;
                 return (
                   <div key={status} style={{ marginBottom:'2.25rem' }}>
