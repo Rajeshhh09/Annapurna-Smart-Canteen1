@@ -561,7 +561,7 @@ export default function Register() {
             <div className="login-row">
               Already have an account?{' '}
               <a href="/login" className="login-link">Sign In</a>
-            </div>
+            </div> 
           </form>
         </div>
 

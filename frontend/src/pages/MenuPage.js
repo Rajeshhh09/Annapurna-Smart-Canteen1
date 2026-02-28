@@ -282,7 +282,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .action-btn-orange { flex: 1; padding: .9rem; background: linear-gradient(135deg,#FF7A33,#FF5500); color: white; border: none; border-radius: 11px; font-family: 'DM Sans',sans-serif; font-size: .9rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(255,107,0,.3); display: flex; align-items: center; justify-content: center; gap: .4rem; transition: all .15s; }
 .action-btn-orange:hover { transform: translateY(-1px); box-shadow: 0 7px 22px rgba(255,107,0,.4); }
 .action-btn-orange:disabled { background: var(--bg3); color: var(--text4); box-shadow: none; cursor: not-allowed; transform: none; }
-.action-btn-green { flex: 1; padding: .9rem; background: linear-gradient(135deg,#16a34a,#15803d); color: white; border: none; border-radius: 11px; font-family: 'DM Sans',sans-serif; font-size: .9rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(22,163,74,.3); display: flex; align-items: center; justify-content: center; gap: .4rem; transition: all .4s ease; }
+.action-btn-green { flex: 1; padding: .9rem; background: linear-gradient(135deg,#FF7A33,#FF5500); color: white; border: none; border-radius: 11px; font-family: 'DM Sans',sans-serif; font-size: .9rem; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(255,107,0,.35); display: flex; align-items: center; justify-content: center; gap: .4rem; transition: all .4s ease; }
+.action-btn-green:hover { transform: translateY(-1px); box-shadow: 0 7px 22px rgba(255,107,0,.45); }
 .action-btn-locked { flex: 1; padding: .9rem; background: var(--bg3); color: var(--text4); border: none; border-radius: 11px; font-family: 'DM Sans',sans-serif; font-size: .9rem; font-weight: 700; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: .4rem; }
 
 /* ── RECEIPT MODAL ── */
@@ -353,6 +354,25 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .empty-st { text-align: center; padding: 4rem 2rem; }
 .load-root { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; background: var(--bg); }
 
+/* ── DNA BUTTON ON CARD ── */
+.dna-btn { width: 34px; height: 34px; border-radius: 9px; border: 1.5px solid ${dark ? 'rgba(255,122,51,.3)' : 'rgba(255,122,51,.25)'}; background: ${dark ? 'rgba(255,122,51,.1)' : '#fff3ec'}; color: #FF7A33; font-size: .95rem; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .18s; }
+.dna-btn:hover { background: linear-gradient(135deg,#FF7A33,#FF5500); color: white; border-color: transparent; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,107,0,.4); }
+
+/* ── FOOD DNA PANEL ── */
+@keyframes dnaBarPulse { 0%,100% { opacity:.5; box-shadow: 0 0 8px rgba(255,122,51,.5); } 50% { opacity:1; box-shadow: 0 0 20px rgba(255,122,51,.9), 0 0 40px rgba(255,107,0,.4); } }
+@keyframes dnaShimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes dnaHelixFloat { 0% { transform: translateY(0px) rotate(0deg); } 100% { transform: translateY(-80px) rotate(3deg); } }
+@keyframes dnaRipple { 0% { transform: scale(0); opacity: .7; } 100% { transform: scale(4); opacity: 0; } }
+@keyframes dnaSpark0 { to { transform: translate(-14px,-18px) scale(0); opacity:0; } }
+@keyframes dnaSpark1 { to { transform: translate(14px,-18px) scale(0); opacity:0; } }
+@keyframes dnaSpark2 { to { transform: translate(-20px,-4px) scale(0); opacity:0; } }
+@keyframes dnaSpark3 { to { transform: translate(20px,-4px) scale(0); opacity:0; } }
+@keyframes dnaSpark4 { to { transform: translate(-10px,14px) scale(0); opacity:0; } }
+@keyframes dnaSpark5 { to { transform: translate(10px,14px) scale(0); opacity:0; } }
+@keyframes dnaStatIn { from { opacity:0; transform:translateX(18px); } to { opacity:1; transform:translateX(0); } }
+@keyframes dnaHeaderPulse { 0%,100% { text-shadow: 0 0 10px rgba(255,122,51,.4); } 50% { text-shadow: 0 0 20px rgba(255,122,51,.8), 0 0 40px rgba(255,107,0,.3); } }
+@keyframes dnaGlowBorder { 0%,100% { box-shadow: 0 0 0 1px rgba(255,122,51,.3), inset 0 0 30px rgba(255,122,51,.03); } 50% { box-shadow: 0 0 0 1.5px rgba(255,122,51,.6), inset 0 0 40px rgba(255,122,51,.06), 0 0 40px rgba(255,107,0,.15); } }
+
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes spinSmooth { to { transform: rotate(360deg); } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -364,7 +384,499 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .steam-1 { animation: steamRise 1.8s ease-in-out infinite; }
 .steam-2 { animation: steamRise 1.8s ease-in-out .35s infinite; }
 .steam-3 { animation: steamRise 1.8s ease-in-out .7s infinite; }
+
+/* ═══════════════════════════════════════════
+   TABLET — max-width 1024px
+═══════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .cart-drawer.open { width: 320px; }
+  .mgrid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+}
+
+/* ═══════════════════════════════════════════
+   MOBILE — max-width 768px
+═══════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Header */
+  .mhdr-in { padding: .65rem 1rem; gap: .5rem; flex-wrap: nowrap; }
+  .logo-sub { display: none; }
+  .nav-right { gap: .3rem; flex-wrap: nowrap; }
+  .nav-btn { padding: .45rem .6rem; font-size: 0; min-width: 38px; justify-content: center; }
+  .nav-btn svg { display: block !important; }
+  .user-name { max-width: 72px; font-size: .75rem; }
+  .user-chip { padding: .35rem .6rem; }
+  .loy-chip { display: none; }
+  .cart-trigger { padding: .48rem .85rem; font-size: .82rem; }
+
+  /* Loyalty banner */
+  .loy-banner { padding: .75rem 1rem; }
+  .loy-inner { gap: .6rem; flex-direction: column; align-items: flex-start; }
+
+  /* Hero */
+  .mhero { padding: 1.75rem 1rem; }
+  .hero-title { font-size: 1.85rem; }
+  .hero-sub { font-size: .82rem; }
+  .hero-eye { font-size: .65rem; padding: .25rem .65rem; }
+
+  /* Layout */
+  .page-body { flex-direction: column; }
+  .menu-area { width: 100%; }
+  .mmain { padding: 1.25rem 1rem 5rem; }
+
+  /* Category pills */
+  .cat-row { gap: .4rem; margin-bottom: 1.25rem; overflow-x: auto; flex-wrap: nowrap; padding-bottom: .25rem; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .cat-row::-webkit-scrollbar { display: none; }
+  .cat-pill { padding: .42rem .9rem; font-size: .78rem; flex-shrink: 0; }
+
+  /* Section label */
+  .sec-label { font-size: 1.1rem; margin-bottom: .85rem; }
+
+  /* Menu grid — 2 columns on mobile */
+  .mgrid { grid-template-columns: repeat(2, 1fr); gap: .75rem; }
+  .mcard { border-radius: 13px; }
+  .cbody { padding: .65rem .65rem .7rem; }
+  .cname { font-size: .85rem; }
+  .cdesc { font-size: .72rem; -webkit-line-clamp: 1; }
+  .add-btn { font-size: .77rem; padding: .55rem .4rem; }
+  .qty-ctrl { gap: .35rem; }
+
+  /* Cart drawer — full screen on mobile */
+  .cart-drawer.open {
+    position: fixed !important; top: 0 !important; left: 0 !important;
+    right: 0 !important; bottom: 0 !important;
+    width: 100vw !important; height: 100% !important;
+    z-index: 500 !important; border-left: none !important;
+  }
+
+  /* Modals — slide up from bottom on mobile */
+  .modal-bg { padding: 0; align-items: flex-end; }
+  .modal-box {
+    width: 100% !important; max-width: 100% !important;
+    border-radius: 22px 22px 0 0 !important;
+    max-height: 94vh !important;
+    animation: slideUpMobile .3s ease !important;
+  }
+  .receipt-modal-box {
+    width: 100% !important; max-width: 100% !important;
+    border-radius: 22px 22px 0 0 !important;
+    max-height: 94vh !important;
+    animation: slideUpMobile .3s ease !important;
+  }
+
+  /* Settings panel — full width */
+  .settings-panel { width: 100% !important; max-width: 100% !important; }
+
+  /* Payment method selector */
+  .pm-grid { grid-template-columns: 1fr 1fr !important; }
+
+  /* Checkout action buttons */
+  .checkout-actions { flex-direction: column !important; }
+  .action-btn-green, .action-btn-locked, .cancel-btn { width: 100% !important; }
+}
+
+/* ═══════════════════════════════════════════
+   SMALL PHONES — max-width 400px
+═══════════════════════════════════════════ */
+@media (max-width: 400px) {
+  .hero-title { font-size: 1.55rem; }
+  .mgrid { grid-template-columns: 1fr 1fr; gap: .55rem; }
+  .mhdr-in { padding: .55rem .75rem; }
+  .logo-brand { font-size: 1rem; }
+  .cart-trigger .cart-label { display: none; }
+}
+
+@keyframes slideUpMobile { from { transform: translateY(100%); } to { transform: translateY(0); } }
 `;
+
+// ─── DNA Helix Background SVG ─────────────────────────────────────────────────
+function DNAHelixBG({ dark }) {
+  const pts = Array.from({ length: 14 }, (_, i) => i);
+  return (
+    <div style={{ position:'absolute', inset:0, overflow:'hidden', pointerEvents:'none', zIndex:0 }}>
+      {/* Primary helix — right side */}
+      <svg viewBox="0 0 80 700" preserveAspectRatio="none"
+        style={{ position:'absolute', right:-5, top:0, width:75, height:'110%',
+          opacity: dark ? 0.08 : 0.04,
+          animation:'dnaHelixFloat 9s ease-in-out infinite alternate' }}>
+        <defs>
+          <linearGradient id="hg1" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#FF5500" />
+            <stop offset="50%" stopColor="#FF7A33" />
+            <stop offset="100%" stopColor="#FFD700" />
+          </linearGradient>
+        </defs>
+        <path d="M40 0 C70 58 10 116 40 175 C70 233 10 291 40 350 C70 408 10 466 40 525 C70 583 10 641 40 700"
+          fill="none" stroke="url(#hg1)" strokeWidth="2.5"/>
+        <path d="M40 0 C10 58 70 116 40 175 C10 233 70 291 40 350 C10 408 70 466 40 525 C10 583 70 641 40 700"
+          fill="none" stroke="url(#hg1)" strokeWidth="2.5"/>
+        {pts.map(i => {
+          const y = i * 50 + 12;
+          const phase = (i * Math.PI) / 3.5;
+          const x1 = 40 + 28 * Math.sin(phase);
+          const x2 = 40 - 28 * Math.sin(phase);
+          return <line key={i} x1={x1} y1={y} x2={x2} y2={y} stroke="#FF7A33" strokeWidth="1.5" opacity="0.55"/>;
+        })}
+        {/* Nodes at strand intersections */}
+        {[175, 350, 525].map(y => <circle key={y} cx={40} cy={y} r="4" fill="#FF7A33" opacity="0.7"/>)}
+      </svg>
+
+      {/* Secondary helix — left, faint */}
+      <svg viewBox="0 0 60 500" preserveAspectRatio="none"
+        style={{ position:'absolute', left:-8, top:'15%', width:55, height:'70%',
+          opacity: dark ? 0.04 : 0.02,
+          animation:'dnaHelixFloat 13s ease-in-out infinite alternate-reverse' }}>
+        <path d="M30 0 C55 42 5 83 30 125 C55 167 5 208 30 250 C55 292 5 333 30 375 C55 417 5 458 30 500"
+          fill="none" stroke="#FF7A33" strokeWidth="2"/>
+        <path d="M30 0 C5 42 55 83 30 125 C5 167 55 208 30 250 C5 292 55 333 30 375 C5 417 55 458 30 500"
+          fill="none" stroke="#FF7A33" strokeWidth="2"/>
+      </svg>
+
+      {/* Floating particles */}
+      {[...Array(8)].map((_, i) => (
+        <div key={i} style={{
+          position:'absolute',
+          width: 3 + (i % 3),
+          height: 3 + (i % 3),
+          borderRadius:'50%',
+          background: '#FF7A33',
+          opacity: dark ? 0.12 : 0.07,
+          left: `${10 + (i * 11) % 80}%`,
+          top: `${8 + (i * 13) % 84}%`,
+          animation: `dnaHelixFloat ${5 + i * 1.2}s ease-in-out infinite alternate`,
+          animationDelay: `${i * 0.4}s`,
+        }} />
+      ))}
+    </div>
+  );
+}
+
+// ─── Food DNA Panel ───────────────────────────────────────────────────────────
+function FoodDNAPanel({ item, dark, onClose }) {
+  const panelRef = useRef(null);
+  const [tilt, setTilt]           = useState({ x: 0, y: 0 });
+  const [visible, setVisible]     = useState(false);
+  const [barWidths, setBarWidths] = useState({ calories:0, spice:0, protein:0, popularity:0, freshness:0 });
+  const [counts, setCounts]       = useState({ calories:0, spice:0, protein:0, popularity:0, freshness:0 });
+  const [loadedStats, setLoadedStats] = useState([]);
+  const [sparks, setSparks]       = useState({});
+  const [hoveredStat, setHoveredStat] = useState(null);
+  const [ripple, setRipple]       = useState(null);
+
+  const DNA_STATS = [
+    { key:'calories',   label:'Calories',    icon:'🔥', unit:'kcal', max:800,  value: Number(item.calories)   || 0 },
+    { key:'spice',      label:'Spice Level', icon:'🌶️', unit:'/10',  max:10,   value: Number(item.spice)      || 0 },
+    { key:'protein',    label:'Protein',     icon:'💪', unit:'g',    max:50,   value: Number(item.protein)    || 0 },
+    { key:'popularity', label:'Popularity',  icon:'⭐', unit:'%',    max:100,  value: Number(item.popularity) || 0 },
+    { key:'freshness',  label:'Freshness',   icon:'✨', unit:'/10',  max:10,   value: Number(item.freshness)  || 0 },
+  ];
+
+  const maxIdx = DNA_STATS.reduce((best, s, i) =>
+    s.max > 0 && (s.value / s.max) > (DNA_STATS[best].value / DNA_STATS[best].max) ? i : best, 0);
+
+  useEffect(() => {
+    requestAnimationFrame(() => setVisible(true));
+    DNA_STATS.forEach((stat, i) => {
+      setTimeout(() => {
+        const pct = stat.max > 0 ? (stat.value / stat.max) * 100 : 0;
+        setBarWidths(prev => ({ ...prev, [stat.key]: pct }));
+        const dur = 1100; const start = Date.now();
+        const tick = () => {
+          const prog = Math.min((Date.now() - start) / dur, 1);
+          const eased = 1 - Math.pow(1 - prog, 3);
+          setCounts(prev => ({ ...prev, [stat.key]: stat.value * eased }));
+          if (prog < 1) requestAnimationFrame(tick);
+          else {
+            setCounts(prev => ({ ...prev, [stat.key]: stat.value }));
+            setLoadedStats(prev => [...prev, stat.key]);
+            setSparks(prev => ({ ...prev, [stat.key]: true }));
+            setTimeout(() => setSparks(prev => ({ ...prev, [stat.key]: false })), 700);
+          }
+        };
+        requestAnimationFrame(tick);
+      }, 350 + i * 270);
+    });
+  }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleMouseMove = (e) => {
+    if (!panelRef.current) return;
+    const r = panelRef.current.getBoundingClientRect();
+    const dx = ((e.clientX - r.left) / r.width  - 0.5) * 2;
+    const dy = ((e.clientY - r.top)  / r.height - 0.5) * 2;
+    setTilt({ x: dy * -5, y: dx * 5 });
+  };
+
+  const handleClose = () => { setVisible(false); setTimeout(onClose, 420); };
+
+  const handleRipple = (e, key) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setRipple({ x: e.clientX - r.left, y: e.clientY - r.top, key, id: Date.now() });
+    setTimeout(() => setRipple(null), 600);
+  };
+
+  const bgBase  = dark ? 'rgba(10,14,22,0.98)' : 'rgba(252,250,247,0.98)';
+  const border  = dark ? '1px solid rgba(255,122,51,0.25)' : '1px solid rgba(255,122,51,0.18)';
+  const panelShadow = dark
+    ? '-24px 0 80px rgba(0,0,0,.7), inset 1px 0 0 rgba(255,122,51,.12)'
+    : '-20px 0 60px rgba(0,0,0,.12), inset 1px 0 0 rgba(255,122,51,.08)';
+
+  const SPARK_COLORS = ['#FF7A33','#FFD700','#FF5500','#FFAA55','#FF8C42','#fff'];
+
+  return (
+    <div onClick={e => e.target === e.currentTarget && handleClose()}
+      style={{ position:'fixed', inset:0, zIndex:600,
+        background: 'rgba(0,0,0,.45)', backdropFilter:'blur(6px)',
+        display:'flex', alignItems:'stretch', justifyContent:'flex-end',
+        animation:'fadeIn .22s ease' }}>
+
+      <div ref={panelRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setTilt({ x:0, y:0 })}
+        style={{
+          width: 400, maxWidth:'96vw',
+          background: bgBase,
+          backdropFilter: 'blur(24px)',
+          borderLeft: border,
+          boxShadow: panelShadow,
+          overflowY:'auto', overflowX:'hidden',
+          position:'relative',
+          transform: visible
+            ? `perspective(1400px) rotateY(${tilt.y}deg) rotateX(${tilt.x}deg) translateX(0)`
+            : 'translateX(100%)',
+          transition: visible
+            ? 'transform .6s cubic-bezier(0.34,1.56,0.64,1)'
+            : 'transform .35s ease-in',
+          willChange:'transform',
+          animation: visible ? 'dnaGlowBorder 3s ease-in-out 1.2s infinite' : 'none',
+        }}>
+
+        <DNAHelixBG dark={dark} />
+
+        {/* ── CONTENT ── */}
+        <div style={{ position:'relative', zIndex:1 }}>
+
+          {/* Header gradient strip */}
+          <div style={{
+            background: 'linear-gradient(135deg,#1a0a00,#2d1500,#1a0f05)',
+            padding:'1.5rem 1.5rem 1.25rem',
+            position:'relative', overflow:'hidden',
+          }}>
+            <div style={{ position:'absolute', inset:0, background:'radial-gradient(ellipse at 20% 50%,rgba(255,122,51,.22),transparent 65%)' }} />
+            <div style={{ position:'relative', zIndex:1 }}>
+              {/* Close */}
+              <button onClick={handleClose} style={{
+                position:'absolute', top:0, right:0,
+                background:'rgba(255,255,255,.1)', border:'1px solid rgba(255,255,255,.15)',
+                borderRadius:'50%', width:34, height:34, cursor:'pointer', color:'rgba(255,255,255,.7)',
+                fontSize:'.95rem', display:'flex', alignItems:'center', justifyContent:'center',
+                transition:'all .2s',
+              }}>✕</button>
+
+              {/* DNA badge */}
+              <div style={{ display:'inline-flex', alignItems:'center', gap:'.4rem',
+                background:'rgba(255,122,51,.2)', border:'1px solid rgba(255,122,51,.35)',
+                borderRadius:999, padding:'.22rem .7rem', marginBottom:'.85rem',
+                fontSize:'.6rem', fontWeight:800, color:'#FFAA77', letterSpacing:2,
+                textTransform:'uppercase', animation:'dnaHeaderPulse 3s ease-in-out infinite',
+              }}>
+                🧬 FOOD DNA ANALYZER
+              </div>
+
+              {/* Item info */}
+              <div style={{ display:'flex', alignItems:'center', gap:'.9rem' }}>
+                <img src={item.imageUrl || `https://via.placeholder.com/60/2d1f0e/FF7A33?text=${encodeURIComponent(item.name[0])}`}
+                  alt={item.name}
+                  style={{ width:64, height:64, borderRadius:14, objectFit:'cover', flexShrink:0,
+                    border:'2px solid rgba(255,122,51,.45)', boxShadow:'0 6px 20px rgba(255,107,0,.35)' }} />
+                <div>
+                  <div style={{ fontFamily:"'Playfair Display',serif", fontSize:'1.2rem', fontWeight:800,
+                    color:'white', lineHeight:1.2, marginBottom:3 }}>{item.name}</div>
+                  <div style={{ fontSize:'.72rem', color:'rgba(255,255,255,.5)', display:'flex', gap:'.5rem', alignItems:'center' }}>
+                    <span>{item.category}</span>
+                    <span style={{ width:3, height:3, borderRadius:'50%', background:'rgba(255,255,255,.3)', display:'inline-block' }}/>
+                    <span style={{ color:'#FFAA77', fontWeight:700 }}>₹{item.price.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats area */}
+          <div style={{ padding:'1.35rem 1.5rem' }}>
+            <div style={{ fontSize:'.62rem', fontWeight:800, color: dark ? '#4b5563' : '#c4c4c4',
+              letterSpacing:2.5, textTransform:'uppercase', marginBottom:'1.1rem',
+              display:'flex', alignItems:'center', gap:'.5rem' }}>
+              <div style={{ flex:1, height:1, background: dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)' }}/>
+              NUTRITIONAL PROFILE
+              <div style={{ flex:1, height:1, background: dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)' }}/>
+            </div>
+
+            {DNA_STATS.map((stat, i) => {
+              const isTop    = i === maxIdx && stat.value > 0;
+              const isLoaded = loadedStats.includes(stat.key);
+              const hasSpark = sparks[stat.key];
+              const isHov    = hoveredStat === stat.key;
+              const pct      = barWidths[stat.key] || 0;
+              const countVal = counts[stat.key] || 0;
+              const displayVal = stat.unit === 'kcal' || stat.unit === 'g'
+                ? Math.round(countVal)
+                : Math.round(countVal * 10) / 10;
+
+              return (
+                <div key={stat.key}
+                  onClick={e => handleRipple(e, stat.key)}
+                  onMouseEnter={() => setHoveredStat(stat.key)}
+                  onMouseLeave={() => setHoveredStat(null)}
+                  style={{
+                    marginBottom:'1.1rem', position:'relative', cursor:'pointer',
+                    padding:'.65rem .85rem',
+                    borderRadius:12,
+                    background: isHov
+                      ? dark ? 'rgba(255,122,51,.08)' : 'rgba(255,122,51,.05)'
+                      : 'transparent',
+                    border: `1px solid ${isHov ? 'rgba(255,122,51,.2)' : 'transparent'}`,
+                    transition:'all .18s ease',
+                    animation: `dnaStatIn .4s ease ${i * 0.08}s both`,
+                    overflow:'hidden',
+                  }}>
+
+                  {/* Ripple effect */}
+                  {ripple?.key === stat.key && (
+                    <div style={{
+                      position:'absolute', left: ripple.x, top: ripple.y,
+                      width:8, height:8, marginLeft:-4, marginTop:-4,
+                      borderRadius:'50%',
+                      background:'rgba(255,122,51,.4)',
+                      animation:'dnaRipple .55s ease-out forwards',
+                      pointerEvents:'none',
+                    }} />
+                  )}
+
+                  {/* Label row */}
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'.45rem' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'.45rem' }}>
+                      <span style={{ fontSize:'1.05rem', filter: isHov ? 'drop-shadow(0 0 6px rgba(255,122,51,.6))' : 'none', transition:'filter .2s' }}>{stat.icon}</span>
+                      <span style={{ fontSize:'.82rem', fontWeight:700, color: dark ? '#d1d5db' : '#374151', transition:'color .18s',
+                        ...(isHov ? { color:'#FF7A33' } : {}) }}>{stat.label}</span>
+                      {isTop && (
+                        <span style={{ fontSize:'.55rem', fontWeight:800, color:'#FF7A33',
+                          background: dark ? 'rgba(255,122,51,.18)' : '#fff3ec',
+                          border:'1px solid rgba(255,122,51,.35)',
+                          borderRadius:999, padding:'.08rem .4rem', letterSpacing:1.2,
+                          animation:'dnaHeaderPulse 2s ease-in-out infinite' }}>✦ PEAK</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize:'.9rem', fontWeight:800, color: stat.value > 0 ? '#FF7A33' : dark ? '#374151' : '#d1d5db',
+                      fontFamily:"'DM Sans',sans-serif", minWidth:52, textAlign:'right',
+                      transition:'color .2s',
+                      ...(isHov && stat.value > 0 ? { color:'#FFD700' } : {}) }}>
+                      {stat.value > 0
+                        ? <>{displayVal}<span style={{ fontSize:'.62rem', color: dark ? '#6b7280' : '#9ca3af', marginLeft:2 }}>{stat.unit}</span></>
+                        : <span style={{ fontSize:'.7rem', fontWeight:500 }}>—</span>}
+                    </div>
+                  </div>
+
+                  {/* Bar track */}
+                  <div style={{ position:'relative', height:9, background: dark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.07)', borderRadius:999 }}>
+
+                    {/* Pulse glow behind bar (top stat only) */}
+                    {isTop && isLoaded && (
+                      <div style={{ position:'absolute', inset:-3, borderRadius:999,
+                        background:'rgba(255,122,51,.2)', filter:'blur(5px)',
+                        animation:'dnaBarPulse 2.2s ease-in-out infinite' }} />
+                    )}
+
+                    {/* Bar fill — energy cell */}
+                    <div style={{
+                      height:'100%', borderRadius:999,
+                      width:`${pct}%`,
+                      background: stat.value > 0
+                        ? isTop
+                          ? 'linear-gradient(90deg,#FF5500 0%,#FF7A33 40%,#FFAA55 75%,#FFD700 100%)'
+                          : 'linear-gradient(90deg,#FF5500 0%,#FF7A33 60%,#FFAA55 100%)'
+                        : dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)',
+                      boxShadow: isLoaded && stat.value > 0
+                        ? isTop
+                          ? '0 0 14px rgba(255,215,0,.7), 0 0 6px rgba(255,122,51,.9)'
+                          : isHov ? '0 0 10px rgba(255,122,51,.7)' : '0 0 6px rgba(255,122,51,.45)'
+                        : 'none',
+                      transition:'width 1.15s cubic-bezier(0.34,1.2,0.64,1), box-shadow .3s',
+                      position:'relative', overflow:'hidden',
+                    }}>
+                      {/* Shimmer sweep */}
+                      {stat.value > 0 && (
+                        <div style={{ position:'absolute', inset:0, borderRadius:999,
+                          background:'linear-gradient(90deg,transparent 0%,rgba(255,255,255,.45) 50%,transparent 100%)',
+                          backgroundSize:'200% 100%',
+                          animation:'dnaShimmer 2.5s linear infinite' }} />
+                      )}
+
+                      {/* Glowing tip dot */}
+                      {stat.value > 0 && pct > 6 && (
+                        <div style={{ position:'absolute', right:-4, top:'50%', transform:'translateY(-50%)',
+                          width:11, height:11, borderRadius:'50%', background:'white',
+                          boxShadow:`0 0 8px rgba(255,122,51,1), 0 0 18px rgba(255,122,51,.6)`,
+                          transition:'right .1s' }} />
+                      )}
+                    </div>
+
+                    {/* Cell segment dividers */}
+                    {[25,50,75].map(p => (
+                      <div key={p} style={{ position:'absolute', top:0, left:`${p}%`,
+                        width:1, height:'100%',
+                        background: dark ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.1)',
+                        pointerEvents:'none' }} />
+                    ))}
+                  </div>
+
+                  {/* Spark particles */}
+                  {hasSpark && stat.value > 0 && (
+                    <div style={{ position:'absolute', left:`calc(${pct}% - 2px)`, top:'50%', pointerEvents:'none' }}>
+                      {SPARK_COLORS.map((col, si) => (
+                        <div key={si} style={{
+                          position:'absolute', width:5, height:5, borderRadius:'50%',
+                          background:col, top:0, left:0,
+                          animation:`dnaSpark${si} .65s ease-out forwards`,
+                          boxShadow:`0 0 4px ${col}`,
+                        }} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Legend */}
+            <div style={{ display:'flex', justifyContent:'space-between', margin:'0 .85rem',
+              fontSize:'.6rem', color: dark ? '#374151' : '#d1d5db', marginBottom:'1.25rem' }}>
+              <span>0</span><span>25%</span><span>50%</span><span>75%</span><span>MAX</span>
+            </div>
+
+            {/* No data state */}
+            {DNA_STATS.every(s => s.value === 0) && (
+              <div style={{ textAlign:'center', padding:'1rem',
+                background: dark ? 'rgba(255,122,51,.05)' : '#fff8f3',
+                border:`1px dashed rgba(255,122,51,.25)`,
+                borderRadius:12, marginBottom:'1rem',
+                fontSize:'.8rem', color: dark ? '#6b7280' : '#9ca3af' }}>
+                🧬 DNA data not yet set by admin
+              </div>
+            )}
+
+            {/* Info footer */}
+            <div style={{
+              background: dark ? 'rgba(255,122,51,.06)' : '#fff8f3',
+              border:`1px solid ${dark ? 'rgba(255,122,51,.12)' : 'rgba(255,122,51,.18)'}`,
+              borderRadius:12, padding:'.8rem 1rem',
+              fontSize:'.7rem', color: dark ? '#6b7280' : '#9ca3af', lineHeight:1.65,
+            }}>
+              <span style={{ color:'#FF7A33', fontWeight:700 }}>🧬 Food DNA</span> — Nutritional stats curated by Annapurna Admin. Bars show values relative to recommended daily maxima.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Toggle component ─────────────────────────────────────────────────────────
 const Toggle = ({ on, onChange }) => (
@@ -391,6 +903,7 @@ export default function MenuPage() {
   const [loyaltyPoints, setLoyaltyPoints]       = useState(0);
   const [toast, setToast]                       = useState(null);
   const [paymentMethod, setPaymentMethod]       = useState('cod');
+  const [dnaItem, setDnaItem]                   = useState(null);
 
   // ── Settings state ────────────────────────────────────────────────────────
   const [settingsOpen, setSettingsOpen]         = useState(false);
@@ -1167,7 +1680,7 @@ export default function MenuPage() {
 
                       {/* ── PAYMENT CONFIRMED STATE ── */}
                       {paymentConfirmed && (
-                        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'.6rem', padding:'1rem 1.25rem', borderRadius:12, background: darkMode ? 'rgba(22,163,74,.2)' : '#f0fdf4', border:'2px solid rgba(22,163,74,.5)', fontSize:'.9rem', fontWeight:700, color:'#15803d' }}>
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'.6rem', padding:'1rem 1.25rem', borderRadius:12, background: darkMode ? 'rgba(255,122,51,.18)' : '#fff7f0', border:'2px solid rgba(255,122,51,.5)', fontSize:'.9rem', fontWeight:700, color: darkMode ? '#ffb380' : '#c2410c' }}>
                           <span style={{ fontSize:'1.4rem' }}>✅</span>
                           <div>
                             <div>Payment Confirmed!</div>
@@ -1469,6 +1982,7 @@ export default function MenuPage() {
                               <button className="qty-btn" onClick={() => updateQty(item.id, +1)}>+</button>
                             </div>
                           )}
+                          <button className="dna-btn" title="View Food DNA" onClick={() => setDnaItem(item)}>🧬</button>
                         </div>
                       </div>
                     </div>
@@ -1542,6 +2056,15 @@ export default function MenuPage() {
           </div>
         </div>
       </div>
+
+      {/* ── FOOD DNA PANEL ── */}
+      {dnaItem && (
+        <FoodDNAPanel
+          item={dnaItem}
+          dark={darkMode}
+          onClose={() => setDnaItem(null)}
+        />
+      )}
     </>
   );
 }
