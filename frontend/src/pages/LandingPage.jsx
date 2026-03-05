@@ -613,20 +613,20 @@ export default function LandingPage() {
               <div className="lp-fc-badge">⚡ Most Ordered Today</div>
               <img src="https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=600&q=80&auto=format&fit=crop" alt="Masala Dosa" />
               <div className="lp-fc-rating"><span className="lp-fc-star">★★★★★</span>&nbsp;4.9 (240 reviews)</div>
-              <div className="lp-fc-name">Masala Dosa Platter</div>
+              <div className="lp-fc-name">Banana Pan Cake </div>
               <div className="lp-fc-row">
                 <span className="lp-fc-price">₹89</span>
                 <button className="lp-fc-add" onClick={goOrder}>Add to Cart</button>
               </div>
             </div>
-            <div className="lp-fc lp-fc-sm-1 lp-fc-sm" style={{ transform:'rotate(-2deg)' }}>
+            {/* <div className="lp-fc lp-fc-sm-1 lp-fc-sm" style={{ transform:'rotate(-2deg)' }}>
               <img src="https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?w=400&q=80&auto=format&fit=crop" alt="Biryani" />
               <div className="lp-fc-sm-name">Veg Biryani</div>
               <div className="lp-fc-sm-price">₹120</div>
-            </div>
+            </div> */}
             <div className="lp-fc lp-fc-sm-2 lp-fc-sm" style={{ transform:'rotate(2deg)' }}>
               <img src="https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=400&q=80&auto=format&fit=crop" alt="Dosa" />
-              <div className="lp-fc-sm-name">Paneer Burger</div>
+              <div className="lp-fc-sm-name">South Indian Idli</div>
               <div className="lp-fc-sm-price">₹75</div>
             </div>
             <div className="lp-fc lp-fc-eta">
