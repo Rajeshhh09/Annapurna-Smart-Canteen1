@@ -109,6 +109,9 @@ export default function App() {
 
         {/* ── PUBLIC ROUTES ──────────────────────────────────────────────── */}
 
+        {/* Anyone can visit /landing directly — even logged-in users */}
+        <Route path="/landing" element={<LandingPage />} />
+
         {/* Landing page — shown to visitors at "/" */}
         <Route
           path="/"
