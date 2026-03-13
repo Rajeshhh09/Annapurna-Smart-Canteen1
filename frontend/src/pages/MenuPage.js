@@ -1944,7 +1944,7 @@ export default function MenuPage() {
             {filteredMenu.length === 0 ? (
               <div className="empty-st">
                 <div style={{ fontSize:'3.5rem', marginBottom:'.75rem' }}>🍽️</div>
-                <div style={{ fontFamily:"'Playfair Display',serif", fontSize:'1.2rem', color:'var(--text3)' }}>No dishes found</div>
+                <div style={{ fontFamily:"'Playfair Display',serif", fontSize:'1.2rem', color:'var(--text3)' }}>Wait For Few Seconds Dishes are Loading</div>
               </div>
             ) : (
               <div className="mgrid">
